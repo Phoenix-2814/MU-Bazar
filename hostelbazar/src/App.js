@@ -295,11 +295,12 @@ function App() {
       if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
         setNeedsEmailVerification(true);
         setAuthMessage(message);
-      } else if (authMode === 'register' && err.response?.status === 503) {
+      } else if (authMode === 'register' && [429, 503].includes(err.response?.status)) {
         setAuthForm((form) => ({ ...form, email: form.email.trim().toLowerCase() }));
         setAuthMode('login');
         setNeedsEmailVerification(true);
         setAuthMessage(message);
+        setShowAuthModal(false);
       } else {
         setAuthMessage(`Authentication failed: ${message}`);
       }

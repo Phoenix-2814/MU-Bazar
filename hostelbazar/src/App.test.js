@@ -65,3 +65,32 @@ test('closes registration and prominently confirms verification email was sent',
   expect(statusMessage).toHaveTextContent(/check your mu email/i);
   await waitFor(() => expect(screen.queryByRole('heading', { name: 'Register' })).not.toBeInTheDocument());
 });
+
+test('closes registration and shows the resend cooldown outside the modal', async () => {
+  axios.get.mockResolvedValue({ data: [] });
+  axios.post.mockRejectedValue({
+    response: {
+      status: 429,
+      data: { message: 'A verification email was sent recently. Please wait one minute before requesting another.' },
+    },
+  });
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
+  fireEvent.click(screen.getByText('Register here'));
+
+  fireEvent.change(screen.getByPlaceholderText('Full Name'), { target: { value: 'Test Student' } });
+  fireEvent.change(screen.getByPlaceholderText('Phone'), { target: { value: '1234567890' } });
+  fireEvent.change(screen.getByPlaceholderText('Hostel Name'), { target: { value: 'Test Hostel' } });
+  fireEvent.change(screen.getByPlaceholderText('Hostel Block'), { target: { value: 'A' } });
+  fireEvent.change(screen.getByPlaceholderText('Room Number'), { target: { value: '101' } });
+  fireEvent.change(screen.getByPlaceholderText('MU email (@marwadiuniversity.ac.in)'), {
+    target: { value: 'student@marwadiuniversity.ac.in' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'password123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+  const statusMessage = await screen.findByRole('status');
+  expect(statusMessage).toHaveTextContent(/wait one minute/i);
+  await waitFor(() => expect(screen.queryByPlaceholderText('Full Name')).not.toBeInTheDocument());
+});
