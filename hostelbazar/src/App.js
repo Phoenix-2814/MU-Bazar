@@ -274,6 +274,7 @@ function App() {
         setAuthMode('login');
         setNeedsEmailVerification(true);
         setAuthMessage(res.data.message);
+        setShowAuthModal(false);
         return;
       } else {
         res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
@@ -530,7 +531,7 @@ function App() {
   return (
     <div className="app-container">
       {authMessage && !showAuthModal && (
-        <div className="auth-status-message" role="status">
+        <div className="auth-status-message" role="status" aria-live="polite">
           <span>{authMessage}</span>
           <button type="button" onClick={() => setAuthMessage('')} aria-label="Dismiss message">
             &times;

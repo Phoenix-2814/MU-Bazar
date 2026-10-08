@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import App from './App';
 
@@ -38,4 +38,30 @@ test('shows public listings without requiring a login', async () => {
   expect(await screen.findByText('Public listing')).toBeInTheDocument();
   expect(axios.get).toHaveBeenCalledWith(expect.stringMatching(/\/api\/items$/));
   expect(localStorage.getItem('token')).toBeNull();
+});
+
+test('closes registration and prominently confirms verification email was sent', async () => {
+  axios.get.mockResolvedValue({ data: [] });
+  axios.post.mockResolvedValue({
+    data: { message: 'Account created. Check your MU email for a verification link before logging in.' },
+  });
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
+  fireEvent.click(screen.getByText('Register here'));
+
+  fireEvent.change(screen.getByPlaceholderText('Full Name'), { target: { value: 'Test Student' } });
+  fireEvent.change(screen.getByPlaceholderText('Phone'), { target: { value: '1234567890' } });
+  fireEvent.change(screen.getByPlaceholderText('Hostel Name'), { target: { value: 'Test Hostel' } });
+  fireEvent.change(screen.getByPlaceholderText('Hostel Block'), { target: { value: 'A' } });
+  fireEvent.change(screen.getByPlaceholderText('Room Number'), { target: { value: '101' } });
+  fireEvent.change(screen.getByPlaceholderText('MU email (@marwadiuniversity.ac.in)'), {
+    target: { value: 'student@marwadiuniversity.ac.in' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'password123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+  const statusMessage = await screen.findByRole('status');
+  expect(statusMessage).toHaveTextContent(/check your mu email/i);
+  await waitFor(() => expect(screen.queryByRole('heading', { name: 'Register' })).not.toBeInTheDocument());
 });
