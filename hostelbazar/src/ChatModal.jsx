@@ -54,6 +54,19 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     setLoading(true);
     setMessages([]);
 
+    axios
+      .get(`${API_BASE_URL}/api/chat/conversations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (!cancelled) setConversations(res.data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.response?.data?.message || 'Could not load conversation details.');
+        }
+      });
+
     const markConversationRead = () => {
       axios
         .patch(
@@ -128,7 +141,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
   }, [activeConversationId, currentUserId, onUnreadCountChange, token]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = (event) => {
@@ -159,6 +172,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     const otherMember = conversation.members?.find((member) => getId(member) !== currentUserId);
     return otherMember?.name || 'Marketplace user';
   };
+  const activeConversation = conversations.find((item) => item._id === activeConversationId);
 
   return (
     <div className="chat-modal-overlay" onMouseDown={(event) => {
@@ -173,8 +187,13 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
           )}
           <div>
             <h2>{activeConversationId ? 'Chat' : 'Your messages'}</h2>
-            {activeConversationId && conversations.length > 0 && (
-              <span>{getConversationTitle(conversations.find((item) => item._id === activeConversationId) || {})}</span>
+            {activeConversationId && activeConversation && (
+              <>
+                <span>Chat with {getConversationTitle(activeConversation)}</span>
+                <span className="chat-product-context">
+                  About: {activeConversation.itemId?.title || 'Listing'}
+                </span>
+              </>
             )}
           </div>
           <button onClick={onClose} className="chat-close-button" type="button" aria-label="Close chat">

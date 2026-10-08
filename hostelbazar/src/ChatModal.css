@@ -38,6 +38,13 @@
   font-size: 0.82rem;
 }
 
+.chat-header .chat-product-context {
+  display: block;
+  margin-top: 4px;
+  color: #4f46e5;
+  font-weight: 600;
+}
+
 .chat-close-button,
 .chat-back-button {
   border: 0;
