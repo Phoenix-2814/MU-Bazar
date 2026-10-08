@@ -25,6 +25,7 @@ const io = new Server(server, {
     origin: clientOrigins,
   },
 });
+app.set('io', io);
 
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;

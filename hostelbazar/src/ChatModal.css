@@ -206,6 +206,19 @@
   color: #e0e7ff;
 }
 
+.chat-read-status {
+  display: block;
+  margin-top: 2px;
+  color: #e0e7ff;
+  font-size: 0.65rem;
+  text-align: right;
+}
+
+.chat-read-status.is-seen {
+  color: #bfdbfe;
+  font-weight: 700;
+}
+
 .chat-empty-state {
   margin: auto;
   padding: 24px;

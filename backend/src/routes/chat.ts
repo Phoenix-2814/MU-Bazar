@@ -119,6 +119,8 @@ router.patch('/conversations/:conversationId/read', authenticateToken, async (re
       },
       { $addToSet: { readBy: userId } }
     );
+    const io = req.app.get('io');
+    io.to(conversationId).emit('messages_read', { conversationId, readerId: userId });
 
     const conversationIds = await Conversation.find({ members: userId }).distinct('_id');
     const unreadCount = await Message.countDocuments({

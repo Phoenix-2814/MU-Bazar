@@ -121,12 +121,22 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
         if (getId(message.sender) !== currentUserId) markConversationRead();
       }
     };
+    const handleMessagesRead = ({ conversationId: readConversationId, readerId } = {}) => {
+      if (cancelled || readConversationId !== activeConversationId || !readerId) return;
+      setMessages((previous) => previous.map((message) => {
+        if (getId(message.sender) !== currentUserId) return message;
+        const readBy = message.readBy || [];
+        if (readBy.some((reader) => getId(reader) === readerId)) return message;
+        return { ...message, readBy: [...readBy, readerId] };
+      }));
+    };
     const handleSocketError = () => {
       if (!cancelled) setError('Chat connection failed. Please refresh and try again.');
     };
 
     socket.on('connect', joinConversation);
     socket.on('receive_message', receiveMessage);
+    socket.on('messages_read', handleMessagesRead);
     socket.on('connect_error', handleSocketError);
     socket.connect();
 
@@ -135,6 +145,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
       if (socket.connected) socket.emit('leave_room', activeConversationId);
       socket.off('connect', joinConversation);
       socket.off('receive_message', receiveMessage);
+      socket.off('messages_read', handleMessagesRead);
       socket.off('connect_error', handleSocketError);
       socket.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
@@ -174,6 +185,9 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     return otherMember?.name || 'Marketplace user';
   };
   const activeConversation = conversations.find((item) => item._id === activeConversationId);
+  const otherUserId = activeConversation?.members
+    ?.map(getId)
+    .find((memberId) => memberId !== currentUserId);
 
   return (
     <div className="chat-modal-overlay" onMouseDown={(event) => {
@@ -266,6 +280,20 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
                           minute: '2-digit',
                         })}
                       </time>
+                      {isMine && (
+                        <span
+                          className={`chat-read-status ${
+                            message.readBy?.some((reader) => getId(reader) === otherUserId) ? 'is-seen' : ''
+                          }`}
+                          aria-label={
+                            message.readBy?.some((reader) => getId(reader) === otherUserId)
+                              ? 'Seen by recipient'
+                              : 'Sent, not seen yet'
+                          }
+                        >
+                          {message.readBy?.some((reader) => getId(reader) === otherUserId) ? 'Seen' : 'Sent'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
