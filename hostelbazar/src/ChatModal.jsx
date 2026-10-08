@@ -190,9 +190,27 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
             {activeConversationId && activeConversation && (
               <>
                 <span>Chat with {getConversationTitle(activeConversation)}</span>
-                <span className="chat-product-context">
-                  About: {activeConversation.itemId?.title || 'Listing'}
-                </span>
+                <div className="chat-product-context">
+                  {activeConversation.itemId?.images?.[0] ? (
+                    <img
+                      className="chat-product-image"
+                      src={activeConversation.itemId.images[0]}
+                      alt={activeConversation.itemId.title || 'Product'}
+                    />
+                  ) : (
+                    <div className="chat-product-image chat-product-image-placeholder" aria-hidden="true">
+                      No image
+                    </div>
+                  )}
+                  <div className="chat-product-details">
+                    <span className="chat-product-title">
+                      {activeConversation.itemId?.title || 'Listing'}
+                    </span>
+                    {activeConversation.itemId?.price != null && (
+                      <strong>₹{activeConversation.itemId.price}</strong>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </div>

@@ -24,7 +24,11 @@ test('shows the product the buyer contacted the seller about', async () => {
             { _id: 'buyer-1', name: 'Buyer' },
             { _id: 'seller-1', name: 'Seller' },
           ],
-          itemId: { title: 'Physics Textbook', price: 500 },
+          itemId: {
+            title: 'Physics Textbook',
+            price: 500,
+            images: ['https://images.example/physics-textbook.jpg'],
+          },
         }],
       });
     }
@@ -48,5 +52,10 @@ test('shows the product the buyer contacted the seller about', async () => {
   );
 
   expect(await screen.findByText('Chat with Buyer')).toBeInTheDocument();
-  expect(screen.getByText('About: Physics Textbook')).toBeInTheDocument();
+  expect(screen.getByText('Physics Textbook')).toBeInTheDocument();
+  expect(screen.getByText('₹500')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Physics Textbook' })).toHaveAttribute(
+    'src',
+    'https://images.example/physics-textbook.jpg'
+  );
 });
