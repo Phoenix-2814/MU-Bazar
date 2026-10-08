@@ -279,6 +279,12 @@ function App() {
     };
 
     refreshUnreadCount();
+    const unreadRefreshInterval = window.setInterval(refreshUnreadCount, 15000);
+    const refreshUnreadWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshUnreadCount();
+    };
+    window.addEventListener('focus', refreshUnreadCount);
+    document.addEventListener('visibilitychange', refreshUnreadWhenVisible);
 
     const socket = io(API_BASE_URL, { autoConnect: false, auth: { token } });
     socket.on('user_message', refreshUnreadCount);
@@ -289,6 +295,9 @@ function App() {
 
     return () => {
       cancelled = true;
+      window.clearInterval(unreadRefreshInterval);
+      window.removeEventListener('focus', refreshUnreadCount);
+      document.removeEventListener('visibilitychange', refreshUnreadWhenVisible);
       socket.disconnect();
     };
   }, [token, currentUserId]);

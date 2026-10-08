@@ -3,6 +3,14 @@ import axios from 'axios';
 import App from './App';
 
 jest.mock('axios');
+jest.mock('socket.io-client', () => ({
+  __esModule: true,
+  io: () => ({
+    on: jest.fn(),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+  }),
+}));
 
 beforeEach(() => {
   localStorage.clear();
@@ -38,6 +46,20 @@ test('shows public listings without requiring a login', async () => {
   expect(await screen.findByText('Public listing')).toBeInTheDocument();
   expect(axios.get).toHaveBeenCalledWith(expect.stringMatching(/\/api\/items$/));
   expect(localStorage.getItem('token')).toBeNull();
+});
+
+test('shows the messages dot when the signed-in user has unread messages', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'seller-id', name: 'Seller' }));
+  localStorage.setItem('token', 'seller-token');
+  axios.get.mockImplementation((url) => (
+    url.endsWith('/api/chat/unread-count')
+      ? Promise.resolve({ data: { unreadCount: 1 } })
+      : Promise.resolve({ data: [] })
+  ));
+
+  render(<App />);
+
+  expect(await screen.findByLabelText('You have unread messages')).toBeInTheDocument();
 });
 
 test('closes registration and prominently confirms verification email was sent', async () => {
