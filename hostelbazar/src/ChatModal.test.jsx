@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import axios from 'axios';
 import ChatModal from './ChatModal';
 
@@ -58,4 +58,10 @@ test('shows the product the buyer contacted the seller about', async () => {
     'src',
     'https://images.example/physics-textbook.jpg'
   );
+  expect(screen.getByRole('button', { name: 'Hi' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'What is the final price?' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Can you lower the price?' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Can you lower the price?' }));
+  expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Can you lower the price?');
 });

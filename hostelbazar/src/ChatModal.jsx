@@ -5,6 +5,7 @@ import './ChatModal.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
+const QUICK_MESSAGES = ['Hi', 'What is the final price?', 'Can you lower the price?'];
 
 function getId(value) {
   return typeof value === 'string' ? value : value?._id || value?.id;
@@ -271,6 +272,20 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
               })}
               <div ref={messagesEndRef} />
             </div>
+            {!loading && messages.length === 0 && (
+              <div className="chat-quick-messages" aria-label="Suggested messages">
+                {QUICK_MESSAGES.map((message) => (
+                  <button
+                    key={message}
+                    type="button"
+                    className="chat-quick-message"
+                    onClick={() => setText(message)}
+                  >
+                    {message}
+                  </button>
+                ))}
+              </div>
+            )}
             <form onSubmit={handleSendMessage} className="chat-footer">
               <input
                 type="text"
