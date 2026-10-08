@@ -15,14 +15,21 @@ export const validateDeploymentConfig = (): void => {
   if (isProduction && !publicApiUrl) {
     throw new Error('PUBLIC_API_URL must be configured in production.');
   }
-  if (
-    isProduction &&
-    (!process.env.SMTP_HOST ||
-      !process.env.SMTP_USER ||
-      !process.env.SMTP_PASS ||
-      !process.env.SMTP_FROM ||
-      !process.env.FRONTEND_URL)
-  ) {
-    throw new Error('SMTP settings and FRONTEND_URL must be configured in production.');
+  if (isProduction) {
+    const emailProvider = (process.env.EMAIL_PROVIDER || 'smtp').toLowerCase();
+    const emailProviderConfigured =
+      emailProvider === 'brevo'
+        ? Boolean(process.env.BREVO_API_KEY && process.env.EMAIL_FROM)
+        : emailProvider === 'smtp' &&
+          Boolean(
+            process.env.SMTP_HOST &&
+              process.env.SMTP_USER &&
+              process.env.SMTP_PASS &&
+              process.env.SMTP_FROM
+          );
+
+    if (!emailProviderConfigured || !process.env.FRONTEND_URL) {
+      throw new Error('Configure a supported email provider and FRONTEND_URL in production.');
+    }
   }
 };

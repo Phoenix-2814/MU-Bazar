@@ -11,11 +11,14 @@ Set these environment variables in the backend host:
 - `CLIENT_ORIGIN` with the exact frontend origin; use comma-separated origins if needed
 - `PUBLIC_API_URL` with the public HTTPS API origin used to build uploaded image URLs
 - `UPLOADS_DIR` pointing to persistent writable storage if the host's filesystem is ephemeral
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` for verification email
+- `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`, and optionally `EMAIL_FROM_NAME` for Brevo HTTPS email delivery
 - `FRONTEND_URL` as the frontend origin used for the verification link
 
 Registration creates an unverified account and sends a single-use link that expires after 24 hours.
-Set up SMTP before enabling registration; users cannot log in until they verify their MU email.
+Verify the sender address in Brevo before enabling registration. Brevo sends over HTTPS, which works
+with Render's free-service network restrictions; free Render services cannot send outbound traffic
+on SMTP ports 25, 465, or 587. For local development, `EMAIL_PROVIDER=smtp` continues to use the
+SMTP variables in `.env.example`.
 
 Generate a JWT secret locally with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 Do not commit `.env` files or use the sample secret from `.env.example`.
@@ -35,4 +38,4 @@ production frontend uses its own origin for API requests.
 - Restrict `CLIENT_ORIGIN` to the actual frontend domain.
 - Configure MongoDB network access and backups.
 - Verify image uploads, chat sockets, listing CRUD, and email-domain restrictions against production.
-- Verify university-email links and the SMTP delivery setup before opening registration.
+- Verify university-email links and the configured email provider before opening registration.
