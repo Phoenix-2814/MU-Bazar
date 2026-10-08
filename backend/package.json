@@ -33,6 +33,6 @@
     "@types/nodemailer": "^8.0.2",
     "@types/socket.io": "^3.0.1",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
+    "typescript": "5.9.3"
   }
 }
