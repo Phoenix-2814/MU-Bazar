@@ -13,6 +13,7 @@ Set these environment variables in the backend host:
 - `UPLOADS_DIR` pointing to persistent writable storage if the host's filesystem is ephemeral
 - `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`, and optionally `EMAIL_FROM_NAME` for Brevo HTTPS email delivery
 - `FRONTEND_URL` as the frontend origin used for the verification link
+- `GOOGLE_CLIENT_ID` as the Google OAuth 2.0 web client ID used to verify Google ID tokens
 
 Registration creates an unverified account and sends a single-use link that expires after 24 hours.
 Verify the sender address in Brevo before enabling registration. Brevo sends over HTTPS, which works
@@ -31,6 +32,13 @@ service before deploying to a host with ephemeral filesystems.
 Set `REACT_APP_API_URL` to the public HTTPS API origin before building the frontend. If the frontend
 and API use the same origin with a reverse proxy, set it to that origin. Without this variable, a
 production frontend uses its own origin for API requests.
+Set `REACT_APP_GOOGLE_CLIENT_ID` to the same Google OAuth 2.0 web client ID as the backend before
+building the frontend. In Google Cloud Console, add each deployed frontend domain (and
+`http://localhost:3000` for development) as an authorized JavaScript origin. The browser client ID is
+public; do not put a Google client secret in the frontend.
+
+Google sign-in is restricted to Google-verified `@marwadiuniversity.ac.in` accounts. Sign-in only
+accepts existing MU Bazar accounts; sign-up creates an account and asks for hosteler/outsider details.
 
 ## Before going live
 

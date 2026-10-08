@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import './App.css';
@@ -6,6 +6,7 @@ import ChatModal from './ChatModal';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function App() {
   const [items, setItems] = useState([]);
@@ -22,6 +23,10 @@ function App() {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [authMessage, setAuthMessage] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const googleButtonRef = useRef(null);
+  const authFormRef = useRef(authForm);
+  authFormRef.current = authForm;
   const currentUserId = user?._id || user?.id;
 
   // Modal UI States
@@ -121,6 +126,76 @@ function App() {
   useEffect(() => {
     fetchItems();
   }, []);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return undefined;
+    if (window.google?.accounts?.id) {
+      setGoogleScriptLoaded(true);
+      return undefined;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setGoogleScriptLoaded(true);
+    script.onerror = () => setAuthMessage('Could not load Google sign-in. Please try again later.');
+    document.head.appendChild(script);
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showAuthModal || !GOOGLE_CLIENT_ID || !googleScriptLoaded || !googleButtonRef.current) return;
+
+    googleButtonRef.current.replaceChildren();
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        setAuthMessage('');
+        const currentForm = authFormRef.current;
+        try {
+          const res = await axios.post(`${API_BASE_URL}/api/auth/google`, {
+            credential: response.credential,
+            mode: authMode === 'register' ? 'signup' : 'signin',
+            residencyType: currentForm.residencyType,
+            hostelName: currentForm.hostelName,
+            hostelBlock: currentForm.hostelBlock,
+            roomNumber: currentForm.roomNumber,
+          });
+          setUser(res.data.user);
+          setToken(res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          localStorage.setItem('token', res.data.token);
+          setShowAuthModal(false);
+          setNeedsEmailVerification(false);
+          setAuthMessage('');
+        } catch (err) {
+          const message = err.response?.data?.message || 'Google authentication failed.';
+          if (err.response?.data?.code === 'ACCOUNT_NOT_FOUND') {
+            setAuthMessage(`${message} Choose Register to create an account.`);
+          } else if (err.response?.data?.code === 'ACCOUNT_EXISTS') {
+            setAuthMessage(`${message} Choose Login to continue.`);
+          } else {
+            setAuthMessage(message);
+          }
+        }
+      },
+    });
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: 'outline',
+      size: 'large',
+      text: authMode === 'register' ? 'signup_with' : 'signin_with',
+      shape: 'rectangular',
+      width: 280,
+    });
+  }, [
+    showAuthModal,
+    authMode,
+    googleScriptLoaded,
+  ]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -1054,6 +1129,51 @@ function App() {
             </button>
             <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
             {authMessage && <p className="auth-form-message" role="status">{authMessage}</p>}
+            {GOOGLE_CLIENT_ID && (
+              <div className="google-auth-section">
+                {authMode === 'register' && (
+                  <div className="google-signup-profile">
+                    <p>Choose your residency for Google sign-up</p>
+                    <select
+                      aria-label="Google signup residency type"
+                      value={authForm.residencyType}
+                      onChange={(e) => setAuthForm({ ...authForm, residencyType: e.target.value })}
+                    >
+                      <option value="hosteler">Hosteler</option>
+                      <option value="outsider">Outsider</option>
+                    </select>
+                    {authForm.residencyType === 'hosteler' && (
+                      <>
+                        <input
+                          aria-label="Google signup hostel name"
+                          placeholder="Hostel Name"
+                          value={authForm.hostelName}
+                          onChange={(e) => setAuthForm({ ...authForm, hostelName: e.target.value })}
+                        />
+                        <input
+                          aria-label="Google signup hostel block"
+                          placeholder="Hostel Block"
+                          value={authForm.hostelBlock}
+                          onChange={(e) => setAuthForm({ ...authForm, hostelBlock: e.target.value })}
+                        />
+                        <input
+                          aria-label="Google signup room number"
+                          placeholder="Room Number"
+                          value={authForm.roomNumber}
+                          onChange={(e) => setAuthForm({ ...authForm, roomNumber: e.target.value })}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+                {googleScriptLoaded ? (
+                  <div ref={googleButtonRef} className="google-signin-button" />
+                ) : (
+                  <p className="registration-email-note">Loading Google sign-in...</p>
+                )}
+                <div className="auth-divider"><span>or use email</span></div>
+              </div>
+            )}
             <form onSubmit={handleAuth}>
               {authMode === 'register' && (
                 <>

@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer, { StorageEngine } from 'multer';
 import path from 'path';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
 import JWT_SECRET from '../config/jwt';
 import { sendVerificationEmail } from '../config/mailer';
@@ -12,6 +13,7 @@ import { publicApiUrl } from '../config/urls';
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'));
 
 const router: Router = express.Router();
+const googleClient = new OAuth2Client();
 
 // Multer Disk Storage Configuration for Registration
 const storage: StorageEngine = multer.diskStorage({
@@ -72,6 +74,91 @@ const toSafeUser = (user: InstanceType<typeof User>) => {
   delete userObject.emailVerificationSentAt;
   return userObject;
 };
+
+router.post('/google', async (req: Request, res: Response): Promise<void> => {
+  const { credential, mode, residencyType, hostelName, hostelBlock, roomNumber } = req.body || {};
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+
+  if (!googleClientId) {
+    res.status(503).json({ message: 'Google sign-in is not configured.' });
+    return;
+  }
+  if (typeof credential !== 'string' || !['signin', 'signup'].includes(mode)) {
+    res.status(400).json({ message: 'A valid Google credential and sign-in mode are required.' });
+    return;
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: googleClientId });
+    const payload = ticket.getPayload();
+    const email = payload?.email?.trim().toLowerCase();
+
+    if (
+      !email ||
+      payload?.email_verified !== true ||
+      !/^[^\s@]+@[^\s@]+$/.test(email) ||
+      !email.endsWith(UNIVERSITY_EMAIL_DOMAIN)
+    ) {
+      res.status(403).json({ message: 'Use a Google-verified @marwadiuniversity.ac.in account.' });
+      return;
+    }
+
+    if (mode === 'signup') {
+      if (!['hosteler', 'outsider'].includes(residencyType)) {
+        res.status(400).json({ message: 'Choose whether you are a hosteler or outsider.' });
+        return;
+      }
+      if (
+        residencyType === 'hosteler' &&
+        (!hostelName?.trim() || !hostelBlock?.trim() || !roomNumber?.trim())
+      ) {
+        res.status(400).json({ message: 'Hostel name, block, and room number are required for hostelers.' });
+        return;
+      }
+    }
+
+    let user = await User.findOne({ email }).select('+password');
+    if (mode === 'signin' && !user) {
+      res.status(404).json({ code: 'ACCOUNT_NOT_FOUND', message: 'No account found. Please sign up first.' });
+      return;
+    }
+    if (mode === 'signup' && user) {
+      res.status(409).json({ code: 'ACCOUNT_EXISTS', message: 'An account already exists. Please sign in.' });
+      return;
+    }
+
+    if (mode === 'signup') {
+      user = await User.create({
+        name: payload?.name?.trim() || email.split('@')[0],
+        email,
+        emailVerified: true,
+        residencyType,
+        hostelName: residencyType === 'hosteler' ? hostelName.trim() : '',
+        hostelBlock: residencyType === 'hosteler' ? hostelBlock.trim() : '',
+        roomNumber: residencyType === 'hosteler' ? roomNumber.trim() : '',
+        profilePic: payload?.picture || '',
+      });
+    } else if (user && !user.emailVerified) {
+      user.emailVerified = true;
+      await user.save();
+    }
+
+    if (!user) {
+      res.status(500).json({ message: 'Could not complete Google authentication.' });
+      return;
+    }
+
+    const token = jwt.sign({ id: user._id.toString(), emailVerified: true }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: toSafeUser(user) });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
+      res.status(409).json({ message: 'An account already exists for this Google email. Please sign in.' });
+      return;
+    }
+    console.error('Google authentication failed:', err);
+    res.status(401).json({ message: 'Google sign-in failed. Please try again.' });
+  }
+});
 
 // POST /api/auth/register (Handles Multipart Form Data)
 router.post(
@@ -263,7 +350,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       res.status(400).json({ message: 'Invalid credentials.' });
       return;
