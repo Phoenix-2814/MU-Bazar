@@ -25,8 +25,6 @@ function App() {
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
-  const authFormRef = useRef(authForm);
-  authFormRef.current = authForm;
   const currentUserId = user?._id || user?.id;
 
   // Modal UI States
@@ -56,6 +54,8 @@ function App() {
     profilePic: null,
     profilePicPreview: '',
   });
+  const authFormRef = useRef(authForm);
+  authFormRef.current = authForm;
 
   const [postForm, setPostForm] = useState({
     title: '',
