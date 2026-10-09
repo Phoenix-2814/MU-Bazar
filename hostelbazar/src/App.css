@@ -1235,13 +1235,14 @@ body {
 @media (max-width: 768px) {
   .navbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     padding: 12px 18px;
   }
 
   .brand {
     min-width: 0;
+    max-width: calc(100% - 112px);
     gap: 10px;
   }
 
@@ -1254,12 +1255,15 @@ body {
   }
 
   .brand-text .tagline {
+    overflow: hidden;
     font-size: 0.64rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .search-bar {
     grid-column: 1 / -1;
-    grid-row: 2;
+    grid-row: 3;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -1270,24 +1274,45 @@ body {
   }
 
   .nav-actions {
+    grid-row: 2;
+    width: 100%;
     min-width: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 7px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 1px 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-actions .btn-sell,
   .nav-actions .btn-login {
+    flex: 0 0 auto;
+    min-height: 44px;
     padding: 9px 12px;
     font-size: 0.74rem;
+    white-space: nowrap;
   }
 
-  .profile-badge {
+  .navbar > .profile-badge {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    min-height: 44px;
+    max-width: 104px;
     padding: 4px 8px;
+    background: #fff;
+    z-index: 1;
   }
 
   .user-welcome {
-    max-width: 90px;
+    max-width: 62px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1321,17 +1346,7 @@ body {
 
   .nav-actions {
     grid-row: 2;
-    width: 100%;
-    min-width: 0;
     justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 2px 1px 6px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scroll-snap-type: x proximity;
   }
 
   .search-bar {
@@ -1343,14 +1358,6 @@ body {
     flex: 0 0 auto;
     min-height: 44px;
     white-space: nowrap;
-    scroll-snap-align: start;
-  }
-
-  .profile-badge {
-    flex: 0 0 auto;
-    min-width: 0;
-    min-height: 44px;
-    scroll-snap-align: start;
   }
 
   .category-bar {
@@ -1475,8 +1482,20 @@ body {
     font-size: 0.68rem;
   }
 
-  .nav-actions .profile-badge {
-    flex: 0 0 auto;
+  .navbar > .profile-badge {
+    right: 12px;
+    width: 44px;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .navbar > .profile-badge .profile-avatar,
+  .navbar > .profile-badge .profile-avatar-img {
+    flex: 0 0 36px;
+  }
+
+  .navbar > .profile-badge .user-welcome {
+    display: none;
   }
 
   .user-welcome {

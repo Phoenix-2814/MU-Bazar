@@ -735,27 +735,6 @@ function App() {
               <button className="btn-sell" onClick={() => setShowPostModal(true)}>
                 + SELL ITEM
               </button>
-
-              <div
-                className="profile-badge"
-                onClick={() => {
-                  setIsEditingProfile(false);
-                  setActivePage('profile');
-                }}
-              >
-                {user.profilePic ? (
-                  <div
-                    className="profile-avatar-img secure-bg-avatar"
-                    style={{ backgroundImage: `url(${user.profilePic})` }}
-                    onContextMenu={preventContextMenu}
-                  />
-                ) : (
-                  <div className="profile-avatar">
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                  </div>
-                )}
-                <span className="user-welcome">{user.name}</span>
-              </div>
             </>
           ) : (
             <button
@@ -769,6 +748,28 @@ function App() {
             </button>
           )}
         </div>
+        {user && (
+          <div
+            className="profile-badge"
+            onClick={() => {
+              setIsEditingProfile(false);
+              setActivePage('profile');
+            }}
+          >
+            {user.profilePic ? (
+              <div
+                className="profile-avatar-img secure-bg-avatar"
+                style={{ backgroundImage: `url(${user.profilePic})` }}
+                onContextMenu={preventContextMenu}
+              />
+            ) : (
+              <div className="profile-avatar">
+                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
+            <span className="user-welcome">{user.name}</span>
+          </div>
+        )}
       </header>
 
       {/* Category Bar */}

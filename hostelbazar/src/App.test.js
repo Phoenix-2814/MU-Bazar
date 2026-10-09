@@ -79,7 +79,9 @@ test('opens profile details in the page instead of a popup', async () => {
   });
 
   render(<App />);
-  fireEvent.click(await screen.findByText('Profile Student'));
+  const profileName = await screen.findByText('Profile Student');
+  expect(profileName.closest('.nav-actions')).not.toBeInTheDocument();
+  fireEvent.click(profileName);
 
   expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
   expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
