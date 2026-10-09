@@ -265,7 +265,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [token, currentUserId]);
+  }, [token, currentUserId, publishNotification]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return undefined;
