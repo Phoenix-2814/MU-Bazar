@@ -2,14 +2,14 @@
 backend/.env
 backend/.env.*
 !backend/.env.example
-hostelbazar/.env
-hostelbazar/.env.*
-!hostelbazar/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Dependencies and generated output
 backend/node_modules/
 backend/dist/
 backend/uploads/
-hostelbazar/node_modules/
-hostelbazar/build/
-hostelbazar/coverage/
+frontend/node_modules/
+frontend/build/
+frontend/coverage/
