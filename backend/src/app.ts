@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/user';
 import itemRoutes from './routes/item';
 import chatRoutes from './routes/chat';
+import reportRoutes from './routes/report';
 
 const app: Application = express();
 
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Fallback 404 Handler
 app.use((req: Request, res: Response) => {

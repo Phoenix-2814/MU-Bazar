@@ -452,6 +452,188 @@ body {
   background: #3730a3;
 }
 
+.btn-report-listing {
+  padding: 7px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  color: #b91c1c;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-report-listing:hover {
+  background: #fef2f2;
+}
+
+.report-modal-overlay {
+  z-index: 1100;
+}
+
+.report-modal > p,
+.report-modal label {
+  color: var(--text-muted);
+}
+
+.report-listing-name {
+  margin: 8px 0 16px;
+  color: var(--text-primary) !important;
+  font-weight: 700;
+}
+
+.report-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 0.88rem;
+}
+
+.report-open-count {
+  padding: 7px 12px;
+  border-radius: 18px;
+  color: #92400e;
+  background: #fef3c7;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.admin-report-list {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-report-card {
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.admin-report-listing {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-report-listing img {
+  width: 68px;
+  height: 68px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.admin-report-listing > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-report-listing h3 {
+  margin-bottom: 4px;
+}
+
+.admin-report-listing p,
+.report-reviewed-note {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.report-status {
+  padding: 5px 9px;
+  border-radius: 14px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.report-status-open {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.report-status-resolved {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.report-status-dismissed {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.admin-report-meta {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.admin-report-meta > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 130px) 1fr;
+  gap: 10px;
+}
+
+.admin-report-meta dt {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-report-meta dd {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-report-card > label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.admin-report-card > textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  resize: vertical;
+}
+
+.admin-report-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.admin-report-actions button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 18px;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-report-resolve {
+  background: #15803d;
+}
+
+.btn-report-dismiss {
+  background: #64748b;
+}
+
+.admin-report-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 /* --- Modals & Glass Overlays --- */
 .modal-overlay {
   position: fixed;

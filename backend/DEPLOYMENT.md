@@ -14,6 +14,7 @@ Set these environment variables in the backend host:
 - `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`, and optionally `EMAIL_FROM_NAME` for Brevo HTTPS email delivery
 - `FRONTEND_URL` as the frontend origin used for the verification link
 - `GOOGLE_CLIENT_ID` as the Google OAuth 2.0 web client ID used to verify Google ID tokens
+- `ADMIN_EMAILS` as a comma-separated allowlist of verified MU Bazar account emails allowed to review listing reports
 
 Registration creates an unverified account and sends a single-use link that expires after 24 hours.
 Verify the sender address in Brevo before enabling registration. Brevo sends over HTTPS, which works
@@ -27,6 +28,10 @@ Do not commit `.env` files or use the sample secret from `.env.example`.
 Uploaded photos are stored in ImageKit, and the resulting CDN URLs are saved in MongoDB. Existing
 photos already stored as `/uploads/...` URLs continue to use the backend's legacy uploads directory;
 new uploads require `IMAGEKIT_PRIVATE_KEY` to be configured on the backend.
+
+Listing reports are stored in MongoDB. Configure `ADMIN_EMAILS` on the backend with the exact email
+addresses of existing MU Bazar accounts that should receive the Reports navigation button and have
+permission to review reports. The backend checks this allowlist for every admin request.
 
 ## Frontend
 

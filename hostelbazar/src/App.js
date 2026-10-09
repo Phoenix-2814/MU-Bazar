@@ -4,6 +4,8 @@ import { io } from 'socket.io-client';
 import './App.css';
 import ChatModal from './ChatModal';
 import compressImage from './utils/compressImage';
+import ReportListingModal from './ReportListingModal';
+import AdminReports from './AdminReports';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
@@ -16,6 +18,8 @@ function App() {
   const [itemsLoadError, setItemsLoadError] = useState('');
   const [myProductsLoading, setMyProductsLoading] = useState(false);
   const [activePage, setActivePage] = useState('marketplace');
+  const [isReportsAdmin, setIsReportsAdmin] = useState(false);
+  const [reportingItem, setReportingItem] = useState(null);
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
@@ -129,6 +133,32 @@ function App() {
   useEffect(() => {
     fetchItems();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) {
+      setIsReportsAdmin(false);
+      return undefined;
+    }
+
+    axios
+      .get(`${API_BASE_URL}/api/reports/admin/access`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (!cancelled) setIsReportsAdmin(res.data.isAdmin === true);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to check report admin access:', err);
+          setIsReportsAdmin(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentUserId]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return undefined;
@@ -552,6 +582,16 @@ function App() {
     setShowChatModal(true);
   };
 
+  const handleReportListing = (item) => {
+    if (!user || !token) {
+      setAuthMode('login');
+      setAuthMessage('Please log in to report a listing.');
+      setShowAuthModal(true);
+      return;
+    }
+    setReportingItem(item);
+  };
+
   const openEditModal = (item) => {
     setEditItemModal(item);
     setEditItemForm({
@@ -679,6 +719,14 @@ function App() {
                   <span className="unread-message-dot" aria-label="You have unread messages" />
                 )}
               </button>
+              {isReportsAdmin && (
+                <button
+                  className={`btn-sell ${activePage === 'admin-reports' ? 'nav-button-active' : ''}`}
+                  onClick={() => setActivePage('admin-reports')}
+                >
+                  REPORTS
+                </button>
+              )}
               <button className="btn-sell" onClick={() => setShowPostModal(true)}>
                 + SELL ITEM
               </button>
@@ -819,6 +867,13 @@ function App() {
                         Message seller
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="btn-report-listing"
+                      onClick={() => handleReportListing(item)}
+                    >
+                      Report
+                    </button>
                   </div>
                 </div>
               </div>
@@ -826,6 +881,15 @@ function App() {
           </div>
         )}
           </>
+        ) : activePage === 'admin-reports' ? (
+          isReportsAdmin ? (
+            <AdminReports token={token} />
+          ) : (
+            <section className="products-page">
+              <h2>Admin access required</h2>
+              <p className="no-items">This page is only available to authorized report moderators.</p>
+            </section>
+          )
         ) : (
           <section className="products-page">
             <div className="products-page-heading">
@@ -1384,6 +1448,17 @@ function App() {
           token={token}
           onUnreadCountChange={setUnreadMessageCount}
           onClose={() => setShowChatModal(false)}
+        />
+      )}
+      {reportingItem && user && (
+        <ReportListingModal
+          listing={reportingItem}
+          token={token}
+          onClose={() => setReportingItem(null)}
+          onSubmitted={(message) => {
+            setReportingItem(null);
+            setAuthMessage(message);
+          }}
         />
       )}
     </div>
