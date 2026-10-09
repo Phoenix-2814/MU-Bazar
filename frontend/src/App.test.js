@@ -1,20 +1,28 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import App from './App';
+
+const mockSocketHandlers = {};
 
 jest.mock('axios');
 jest.mock('socket.io-client', () => ({
   __esModule: true,
   io: () => ({
-    on: jest.fn(),
+    on: (event, handler) => {
+      mockSocketHandlers[event] = handler;
+    },
     connect: jest.fn(),
     disconnect: jest.fn(),
+    off: jest.fn(),
+    emit: jest.fn(),
+    connected: false,
   }),
 }));
 
 beforeEach(() => {
   localStorage.clear();
   jest.clearAllMocks();
+  Object.keys(mockSocketHandlers).forEach((event) => delete mockSocketHandlers[event]);
 });
 
 test('renders the HostelBazar marketplace', async () => {
@@ -166,6 +174,95 @@ test('sorts matching listings by newest and price in either direction', async ()
   expect(listingTitles()).toEqual(['Lowest price', 'Middle price', 'Newest listing']);
   fireEvent.change(sortSelect, { target: { value: 'price-high' } });
   expect(listingTitles()).toEqual(['Newest listing', 'Middle price', 'Lowest price']);
+});
+
+test('shows and saves a notification when an incoming chat message increases unread count', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'buyer-id', name: 'Buyer' }));
+  localStorage.setItem('token', 'buyer-token');
+  axios.post.mockResolvedValue({ data: { unreadCount: 0 } });
+  axios.patch.mockResolvedValue({ data: { unreadCount: 0 } });
+  let unreadRequests = 0;
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/chat/unread-count')) {
+      unreadRequests += 1;
+      return Promise.resolve({ data: { unreadCount: unreadRequests === 1 ? 0 : 1 } });
+    }
+    if (url.endsWith('/api/reports/admin/access')) {
+      return Promise.resolve({ data: { isAdmin: false } });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  render(<App />);
+  await waitFor(() => expect(mockSocketHandlers.user_message).toEqual(expect.any(Function)));
+  act(() => {
+    mockSocketHandlers.user_message({
+      conversationId: 'conversation-id',
+      messageId: 'message-id',
+    });
+  });
+
+  const notificationButton = await screen.findByRole('button', {
+    name: 'Notifications, 1 unread',
+  });
+  fireEvent.click(notificationButton);
+  const messageNotification = await screen.findByRole('button', {
+    name: /new message you received a new message/i,
+  });
+  fireEvent.click(messageNotification);
+
+  await waitFor(() => expect(localStorage.getItem('mubazar-notifications')).toContain('conversation-id'));
+  expect(screen.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('detects new listings on return to the page and offers browser notification permission', async () => {
+  const initialListing = {
+    _id: 'existing-listing',
+    title: 'Existing book',
+    description: 'Old listing',
+    price: 100,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: [],
+    isSold: false,
+    seller: { name: 'Seller', residencyType: 'outsider' },
+  };
+  const newListing = {
+    ...initialListing,
+    _id: 'new-listing',
+    title: 'New calculator',
+    description: 'Just posted',
+    price: 250,
+    category: 'ELECTRONICS',
+  };
+  let listingsRequests = 0;
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/items')) {
+      listingsRequests += 1;
+      return Promise.resolve({ data: listingsRequests === 1 ? [initialListing] : [newListing, initialListing] });
+    }
+    return Promise.resolve({ data: [] });
+  });
+  const requestPermission = jest.fn().mockResolvedValue('granted');
+  Object.defineProperty(window, 'Notification', {
+    configurable: true,
+    value: class MockNotification {
+      static permission = 'default';
+      static requestPermission = requestPermission;
+    },
+  });
+
+  render(<App />);
+  await screen.findByText('Existing book');
+  fireEvent.focus(window);
+
+  const notificationButton = await screen.findByRole('button', {
+    name: 'Notifications, 1 unread',
+  });
+  fireEvent.click(notificationButton);
+  expect(await screen.findByText('New calculator · ₹250')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Enable browser alerts' }));
+  await waitFor(() => expect(requestPermission).toHaveBeenCalled());
 });
 
 test('shows the messages dot when the signed-in user has unread messages', async () => {

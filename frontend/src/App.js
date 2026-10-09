@@ -20,6 +20,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 const normalizeSearchText = (value) => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+const NOTIFICATIONS_STORAGE_KEY = 'mubazar-notifications';
 
 function App() {
   const [items, setItems] = useState([]);
@@ -36,6 +37,21 @@ function App() {
   });
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(NOTIFICATIONS_STORAGE_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch (err) {
+      console.error('Failed to load saved notifications:', err);
+      return [];
+    }
+  });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [browserNotificationPermission, setBrowserNotificationPermission] = useState(() => (
+    typeof window !== 'undefined' && 'Notification' in window
+      ? window.Notification.permission
+      : 'unsupported'
+  ));
   const [authMessage, setAuthMessage] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -43,7 +59,12 @@ function App() {
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
   const profilePageRef = useRef(null);
+  const seenListingIdsRef = useRef(null);
+  const unreadCountRef = useRef(unreadMessageCount);
+  const browserNotificationPermissionRef = useRef(browserNotificationPermission);
   const currentUserId = user?._id || user?.id;
+  unreadCountRef.current = unreadMessageCount;
+  browserNotificationPermissionRef.current = browserNotificationPermission;
 
   // Modal UI States
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -119,30 +140,99 @@ function App() {
     }
   }, [user]);
 
-  const fetchItems = async () => {
+  const publishNotification = (notification) => {
+    const entry = {
+      ...notification,
+      id: `${notification.type}-${notification.id || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications((current) => [entry, ...current].slice(0, 50));
+
+    if (browserNotificationPermissionRef.current === 'granted' && 'Notification' in window) {
+      try {
+        const browserNotification = new window.Notification(entry.title, {
+          body: entry.body,
+          tag: entry.id,
+        });
+        browserNotification.onclick = () => window.focus();
+      } catch (err) {
+        console.error('Could not show browser notification:', err);
+      }
+    }
+  };
+
+  const fetchItems = async ({ background = false, notifyNewListings = false } = {}) => {
     try {
-      setLoading(true);
-      setItemsLoadError('');
+      if (!background) {
+        setLoading(true);
+        setItemsLoadError('');
+      }
       const res = await axios.get(`${API_BASE_URL}/api/items`);
       if (Array.isArray(res.data)) {
+        const incomingIds = new Set(res.data.map((item) => item._id));
+        if (seenListingIdsRef.current === null) {
+          seenListingIdsRef.current = incomingIds;
+        } else {
+          const newListings = res.data.filter((item) => !seenListingIdsRef.current.has(item._id));
+          seenListingIdsRef.current = incomingIds;
+          if (notifyNewListings) {
+            newListings
+              .filter((item) => {
+                const sellerId = item.seller?._id || item.seller;
+                return !currentUserId || sellerId !== currentUserId;
+              })
+              .forEach((item) => publishNotification({
+                type: 'listing',
+                id: item._id,
+                title: 'New listing',
+                body: `${item.title} · ₹${item.price}`,
+                listingId: item._id,
+                itemTitle: item.title,
+              }));
+          }
+        }
         setItems(res.data);
       } else {
-        setItems([]);
-        setItemsLoadError('The listings service returned an invalid response.');
+        if (!background) {
+          setItems([]);
+          setItemsLoadError('The listings service returned an invalid response.');
+        }
       }
     } catch (err) {
       console.error('Failed to fetch items:', err);
-      setItems([]);
-      setItemsLoadError(
-        `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
-      );
+      if (!background) {
+        setItems([]);
+        setItemsLoadError(
+          `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchItems();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+    const refreshListings = () => fetchItems({ background: true, notifyNewListings: true });
+    const interval = window.setInterval(refreshListings, 60000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshListings();
+    };
+    window.addEventListener('focus', refreshListings);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshListings);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -317,12 +407,25 @@ function App() {
     }
 
     let cancelled = false;
-    const refreshUnreadCount = async () => {
+    const refreshUnreadCount = async (notifyNewMessage = false, messageEvent = {}) => {
       try {
         const res = await axios.get(`${API_BASE_URL}/api/chat/unread-count`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!cancelled) setUnreadMessageCount(res.data.unreadCount || 0);
+        if (!cancelled) {
+          const nextUnreadCount = res.data.unreadCount || 0;
+          if (notifyNewMessage && nextUnreadCount > unreadCountRef.current) {
+            publishNotification({
+              type: 'message',
+              id: messageEvent.messageId || messageEvent.conversationId,
+              title: 'New message',
+              body: 'You received a new message.',
+              conversationId: messageEvent.conversationId,
+            });
+          }
+          unreadCountRef.current = nextUnreadCount;
+          setUnreadMessageCount(nextUnreadCount);
+        }
       } catch (err) {
         if (!cancelled) console.error('Failed to fetch unread message count:', err);
       }
@@ -337,7 +440,7 @@ function App() {
     document.addEventListener('visibilitychange', refreshUnreadWhenVisible);
 
     const socket = io(API_BASE_URL, { autoConnect: false, auth: { token } });
-    socket.on('user_message', refreshUnreadCount);
+    socket.on('user_message', (messageEvent = {}) => refreshUnreadCount(true, messageEvent));
     socket.on('connect_error', (err) => {
       if (!cancelled) console.error('Chat notification connection failed:', err.message);
     });
@@ -492,6 +595,9 @@ function App() {
   };
 
   const handleLogout = () => {
+    const publicNotifications = notifications.filter((notification) => notification.type !== 'message');
+    setNotifications(publicNotifications);
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(publicNotifications));
     setUser(null);
     setToken('');
     setUnreadMessageCount(0);
@@ -597,6 +703,43 @@ function App() {
     setChatConversationId(null);
     setShowChatModal(true);
   };
+
+  const requestBrowserNotifications = async () => {
+    if (!('Notification' in window)) {
+      setBrowserNotificationPermission('unsupported');
+      return;
+    }
+    try {
+      const permission = await window.Notification.requestPermission();
+      setBrowserNotificationPermission(permission);
+    } catch (err) {
+      console.error('Could not request browser notification permission:', err);
+      setAuthMessage('Could not enable browser notifications. Check your browser settings and try again.');
+    }
+  };
+
+  const handleNotificationClick = (notification) => {
+    setNotifications((current) => current.map((entry) => (
+      entry.id === notification.id ? { ...entry, read: true } : entry
+    )));
+    setShowNotifications(false);
+    if (notification.type === 'message' && notification.conversationId) {
+      setChatConversationId(notification.conversationId);
+      setShowChatModal(true);
+      return;
+    }
+    if (notification.type === 'listing') {
+      setActivePage('marketplace');
+      setSelectedCategory('ALL');
+      setSearchQuery(notification.itemTitle || '');
+    }
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((current) => current.map((entry) => ({ ...entry, read: true })));
+  };
+
+  const unreadNotificationCount = notifications.filter((entry) => !entry.read).length;
 
   const handleReportListing = (item) => {
     if (!user || !token) {
@@ -792,7 +935,64 @@ function App() {
               Login / Register
             </button>
           )}
+          <button
+            type="button"
+            className="btn-sell notification-trigger"
+            aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`}
+            aria-expanded={showNotifications}
+            onClick={() => setShowNotifications((showing) => !showing)}
+          >
+            Notifications
+            {unreadNotificationCount > 0 && (
+              <span className="notification-count">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>
+            )}
+          </button>
         </div>
+        {showNotifications && (
+          <section className="notification-panel" aria-label="Notifications">
+            <div className="notification-panel-header">
+              <h2>Notifications</h2>
+              {unreadNotificationCount > 0 && (
+                <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>
+              )}
+            </div>
+            <div className="browser-notification-setting">
+              {browserNotificationPermission === 'granted' ? (
+                <span>Browser notifications are enabled.</span>
+              ) : browserNotificationPermission === 'unsupported' ? (
+                <span>Browser notifications are not supported in this browser.</span>
+              ) : browserNotificationPermission === 'denied' ? (
+                <span>Browser notifications are blocked. Enable them in your browser site settings.</span>
+              ) : (
+                <>
+                  <span>Get alerts while MU Bazar is open.</span>
+                  <button type="button" onClick={requestBrowserNotifications}>
+                    Enable browser alerts
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="notification-list">
+              {notifications.length === 0 ? (
+                <p className="notification-empty">You’re all caught up.</p>
+              ) : notifications.map((notification) => (
+                <button
+                  type="button"
+                  key={notification.id}
+                  className={`notification-item ${notification.read ? 'is-read' : 'is-unread'}`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <span className="notification-item-type">
+                    {notification.type === 'message' ? 'Message' : 'New listing'}
+                  </span>
+                  <strong>{notification.title}</strong>
+                  <span>{notification.body}</span>
+                  <small>{new Date(notification.createdAt).toLocaleString()}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         {user && (
           <div
             className="profile-badge"
