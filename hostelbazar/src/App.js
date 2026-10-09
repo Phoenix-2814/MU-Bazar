@@ -3,6 +3,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import './App.css';
 import ChatModal from './ChatModal';
+import compressImage from './utils/compressImage';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
@@ -23,6 +24,8 @@ function App() {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [authMessage, setAuthMessage] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isModifyingItem, setIsModifyingItem] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
   const currentUserId = user?._id || user?.id;
@@ -348,7 +351,7 @@ function App() {
           formData.append('roomNumber', authForm.roomNumber);
         }
         if (authForm.profilePic) {
-          formData.append('profilePic', authForm.profilePic);
+          formData.append('profilePic', await compressImage(authForm.profilePic));
         }
 
         res = await axios.post(`${API_BASE_URL}/api/auth/register`, formData, {
@@ -405,6 +408,7 @@ function App() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    setIsUpdatingProfile(true);
     try {
       const formData = new FormData();
       formData.append('name', profileForm.name);
@@ -416,7 +420,7 @@ function App() {
         formData.append('roomNumber', profileForm.roomNumber);
       }
       if (profileForm.profilePic) {
-        formData.append('profilePic', profileForm.profilePic);
+        formData.append('profilePic', await compressImage(profileForm.profilePic));
       }
 
       const res = await axios.put(`${API_BASE_URL}/api/user/profile`, formData, {
@@ -435,6 +439,8 @@ function App() {
       refreshMyProducts();
     } catch (err) {
       alert(`Failed to update profile: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -462,7 +468,7 @@ function App() {
 
     if (postForm.images) {
       for (let i = 0; i < postForm.images.length; i++) {
-        formData.append('images', postForm.images[i]);
+        formData.append('images', await compressImage(postForm.images[i]));
       }
     }
 
@@ -560,20 +566,22 @@ function App() {
 
   const handleModifySubmit = async (e) => {
     e.preventDefault();
-    const formData = new FormData();
-    formData.append('title', editItemForm.title);
-    formData.append('description', editItemForm.description);
-    formData.append('price', editItemForm.price);
-    formData.append('category', editItemForm.category);
-    formData.append('condition', editItemForm.condition);
-
-    if (editItemForm.images) {
-      for (let i = 0; i < editItemForm.images.length; i++) {
-        formData.append('images', editItemForm.images[i]);
-      }
-    }
-
+    setIsModifyingItem(true);
     try {
+      const formData = new FormData();
+      formData.append('title', editItemForm.title);
+      formData.append('description', editItemForm.description);
+      formData.append('price', editItemForm.price);
+      formData.append('category', editItemForm.category);
+      formData.append('condition', editItemForm.condition);
+
+      if (editItemForm.images) {
+        const compressedImages = await Promise.all(
+          Array.from(editItemForm.images, (image) => compressImage(image))
+        );
+        compressedImages.forEach((image) => formData.append('images', image));
+      }
+
       await axios.put(`${API_BASE_URL}/api/items/${editItemModal._id}`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -586,6 +594,8 @@ function App() {
       refreshMyProducts();
     } catch (err) {
       alert(`Failed to modify item: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsModifyingItem(false);
     }
   };
 
@@ -984,8 +994,8 @@ function App() {
                 )}
 
                 <div className="profile-actions-row">
-                  <button type="submit" className="btn-submit">
-                    Save Changes
+                  <button type="submit" className="btn-submit" disabled={isUpdatingProfile}>
+                    {isUpdatingProfile ? 'Saving profile...' : 'Save Changes'}
                   </button>
                   <button
                     type="button"
@@ -1121,8 +1131,8 @@ function App() {
                 accept="image/*"
                 onChange={(e) => setEditItemForm({ ...editItemForm, images: e.target.files })}
               />
-              <button type="submit" className="btn-submit">
-                Save Modifications
+              <button type="submit" className="btn-submit" disabled={isModifyingItem}>
+                {isModifyingItem ? 'Saving product...' : 'Save Modifications'}
               </button>
             </form>
           </div>
