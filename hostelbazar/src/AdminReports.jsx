@@ -131,20 +131,26 @@ export default function AdminReports({ token }) {
                 </div>
                 {report.listing && (
                   <div className="admin-listing-moderation">
-                    <span className={`report-status ${report.listing.isHidden ? 'report-status-dismissed' : 'report-status-resolved'}`}>
-                      {report.listing.isHidden ? 'Hidden from marketplace' : 'Visible in marketplace'}
-                    </span>
+                    <span className="admin-listing-moderation-label">Marketplace visibility</span>
                     <button
                       type="button"
-                      className={report.listing.isHidden ? 'btn-report-resolve' : 'btn-report-dismiss'}
+                      role="switch"
+                      aria-checked={!report.listing.isHidden}
+                      aria-label={`Listing visibility: ${report.listing.isHidden ? 'hidden' : 'visible'}`}
+                      className={`listing-visibility-switch ${report.listing.isHidden ? 'is-hidden' : 'is-visible'}`}
                       disabled={savingListingId === report.listing._id}
                       onClick={() => setListingVisibility(report, !report.listing.isHidden)}
                     >
-                      {savingListingId === report.listing._id
-                        ? 'Updating...'
-                        : report.listing.isHidden
-                          ? 'Restore listing'
-                          : 'Hide listing'}
+                      <span className="listing-visibility-track" aria-hidden="true">
+                        <span className="listing-visibility-thumb" />
+                      </span>
+                      <span>
+                        {savingListingId === report.listing._id
+                          ? 'Updating...'
+                          : report.listing.isHidden
+                            ? 'Hidden'
+                            : 'Visible'}
+                      </span>
                     </button>
                   </div>
                 )}

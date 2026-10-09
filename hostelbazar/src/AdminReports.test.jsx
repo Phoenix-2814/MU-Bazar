@@ -84,21 +84,21 @@ test('lets an admin hide and restore a reported listing', async () => {
 
   render(<AdminReports token="admin-token" />);
 
-  expect(await screen.findByText('Visible in marketplace')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Hide listing' }));
+  expect(await screen.findByRole('switch', { name: 'Listing visibility: visible' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('switch', { name: 'Listing visibility: visible' }));
 
   await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(
     expect.stringMatching(/\/api\/reports\/admin\/listings\/listing-1\/visibility$/),
     { isHidden: true },
     { headers: { Authorization: 'Bearer admin-token' } }
   ));
-  expect(await screen.findByText('Hidden from marketplace')).toBeInTheDocument();
+  expect(await screen.findByRole('switch', { name: 'Listing visibility: hidden' })).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Restore listing' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Listing visibility: hidden' }));
   await waitFor(() => expect(axios.patch).toHaveBeenLastCalledWith(
     expect.stringMatching(/\/api\/reports\/admin\/listings\/listing-1\/visibility$/),
     { isHidden: false },
     { headers: { Authorization: 'Bearer admin-token' } }
   ));
-  expect(await screen.findByText('Visible in marketplace')).toBeInTheDocument();
+  expect(await screen.findByRole('switch', { name: 'Listing visibility: visible' })).toBeInTheDocument();
 });
