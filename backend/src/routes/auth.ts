@@ -2,41 +2,14 @@ import express, { Request, Response, Router } from 'express';
 import { createHash, randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import multer, { StorageEngine } from 'multer';
-import path from 'path';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
 import JWT_SECRET from '../config/jwt';
 import { sendVerificationEmail } from '../config/mailer';
-import { publicApiUrl } from '../config/urls';
-
-const uploadsDir = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'));
+import { imageUpload, uploadImage } from '../config/imageStorage';
 
 const router: Router = express.Router();
 const googleClient = new OAuth2Client();
-
-// Multer Disk Storage Configuration for Registration
-const storage: StorageEngine = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  },
-});
 
 interface RegisterRequest extends Request {
   file?: Express.Multer.File;
@@ -163,7 +136,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 // POST /api/auth/register (Handles Multipart Form Data)
 router.post(
   '/register',
-  upload.single('profilePic'),
+  imageUpload.single('profilePic'),
   async (req: RegisterRequest, res: Response): Promise<void> => {
     try {
       const {
@@ -227,10 +200,9 @@ router.post(
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Handle uploaded file path
       let profilePicUrl = '';
       if (req.file) {
-        profilePicUrl = `${publicApiUrl}/uploads/${req.file.filename}`;
+        profilePicUrl = await uploadImage(req.file, '/mubazar/profiles');
       }
 
       const newUser = new User({

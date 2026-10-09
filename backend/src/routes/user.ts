@@ -1,12 +1,9 @@
 import express, { Request, Response, Router } from 'express';
-import multer, { StorageEngine } from 'multer';
-import path from 'path';
 import User from '../models/User';
 import authMiddleware from '../middleware/auth';
-import { publicApiUrl } from '../config/urls';
+import { imageUpload, uploadImage } from '../config/imageStorage';
 
 const router: Router = express.Router();
-const uploadsDir = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'));
 
 interface AuthRequest extends Request {
   user?: {
@@ -16,34 +13,11 @@ interface AuthRequest extends Request {
   file?: Express.Multer.File;
 }
 
-// Multer Disk Storage Configuration
-const storage: StorageEngine = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  },
-});
-
 // PUT /api/user/profile
 router.put(
   '/profile',
   authMiddleware,
-  upload.single('profilePic'),
+  imageUpload.single('profilePic'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { name, phone, residencyType, hostelName, hostelBlock, roomNumber } = req.body;
@@ -74,7 +48,7 @@ router.put(
       }
 
       if (req.file) {
-        updateFields.profilePic = `${publicApiUrl}/uploads/${req.file.filename}`;
+        updateFields.profilePic = await uploadImage(req.file, '/mubazar/profiles');
       }
 
       const userId = req.user?.id || req.user?._id;

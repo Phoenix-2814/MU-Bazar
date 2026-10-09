@@ -1,34 +1,9 @@
 import express, { Request, Response, Router } from 'express';
-import multer, { StorageEngine } from 'multer';
-import path from 'path';
 import Listing from '../models/Listing';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { publicApiUrl } from '../config/urls';
+import { imageUpload, uploadImage } from '../config/imageStorage';
 
 const router: Router = express.Router();
-const uploadsDir = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'));
-
-const storage: StorageEngine = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'item-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  },
-});
 
 // GET /api/items - Fetch all listings
 router.get('/', async (req: Request, res: Response): Promise<void> => {
@@ -72,7 +47,7 @@ router.get('/mine', authenticateToken, async (req: AuthRequest, res: Response): 
 router.post(
   '/',
   authenticateToken,
-  upload.array('images', 5),
+  imageUpload.array('images', 5),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { title, description, price, category, condition } = req.body;
@@ -84,9 +59,9 @@ router.post(
 
       const imageUrls: string[] = [];
       if (req.files && Array.isArray(req.files)) {
-        req.files.forEach((file) => {
-          imageUrls.push(`${publicApiUrl}/uploads/${file.filename}`);
-        });
+        imageUrls.push(...await Promise.all(
+          req.files.map((file) => uploadImage(file, '/mubazar/listings'))
+        ));
       }
 
       const userId = req.user?.id || req.user?._id || req.user?.userId;
@@ -116,7 +91,7 @@ router.post(
 router.put(
   '/:id',
   authenticateToken,
-  upload.array('images', 5),
+  imageUpload.array('images', 5),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id || req.user?._id || req.user?.userId;
@@ -141,11 +116,9 @@ router.put(
       if (condition) listing.condition = condition;
 
       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        const imageUrls: string[] = [];
-        req.files.forEach((file) => {
-          imageUrls.push(`${publicApiUrl}/uploads/${file.filename}`);
-        });
-        listing.images = imageUrls;
+        listing.images = await Promise.all(
+          req.files.map((file) => uploadImage(file, '/mubazar/listings'))
+        );
       }
 
       await listing.save();

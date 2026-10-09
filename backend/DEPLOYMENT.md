@@ -10,7 +10,7 @@ Set these environment variables in the backend host:
 - `JWT_SECRET` with a unique random secret of at least 32 characters
 - `CLIENT_ORIGIN` with the exact frontend origin; use comma-separated origins if needed
 - `PUBLIC_API_URL` with the public HTTPS API origin used to build uploaded image URLs
-- `UPLOADS_DIR` pointing to persistent writable storage if the host's filesystem is ephemeral
+- `IMAGEKIT_PRIVATE_KEY` for persistent image uploads through ImageKit
 - `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`, and optionally `EMAIL_FROM_NAME` for Brevo HTTPS email delivery
 - `FRONTEND_URL` as the frontend origin used for the verification link
 - `GOOGLE_CLIENT_ID` as the Google OAuth 2.0 web client ID used to verify Google ID tokens
@@ -24,8 +24,9 @@ SMTP variables in `.env.example`.
 Generate a JWT secret locally with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 Do not commit `.env` files or use the sample secret from `.env.example`.
 
-Uploaded photos are stored on disk. Configure persistent storage or move uploads to an object-storage
-service before deploying to a host with ephemeral filesystems.
+Uploaded photos are stored in ImageKit, and the resulting CDN URLs are saved in MongoDB. Existing
+photos already stored as `/uploads/...` URLs continue to use the backend's legacy uploads directory;
+new uploads require `IMAGEKIT_PRIVATE_KEY` to be configured on the backend.
 
 ## Frontend
 
