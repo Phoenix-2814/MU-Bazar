@@ -310,6 +310,33 @@ body {
   letter-spacing: -0.5px;
 }
 
+.listing-sort-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: -10px 0 20px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.listing-sort-control select {
+  min-height: 40px;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.listing-sort-control select:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.25);
+  outline-offset: 2px;
+}
+
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));

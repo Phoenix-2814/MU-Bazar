@@ -57,6 +57,7 @@ function App() {
   // Filters
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [listingSort, setListingSort] = useState('newest');
 
   // Forms
   const [authForm, setAuthForm] = useState({
@@ -688,6 +689,15 @@ function App() {
 
     return matchesCategory && matchesSearch;
   });
+  const sortedItems = [...filteredItems].sort((first, second) => {
+    if (listingSort === 'price-low') {
+      return Number(first.price) - Number(second.price);
+    }
+    if (listingSort === 'price-high') {
+      return Number(second.price) - Number(first.price);
+    }
+    return new Date(second.createdAt || 0).getTime() - new Date(first.createdAt || 0).getTime();
+  });
 
   const myActiveListings = myProducts.filter((item) => !item.isSold);
   const mySoldHistoryListings = myProducts.filter((item) => item.isSold);
@@ -834,6 +844,19 @@ function App() {
               : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
         </h2>
 
+        <div className="listing-sort-control">
+          <label htmlFor="listing-sort">Sort by</label>
+          <select
+            id="listing-sort"
+            value={listingSort}
+            onChange={(event) => setListingSort(event.target.value)}
+          >
+            <option value="newest">Newest first</option>
+            <option value="price-low">Price: low to high</option>
+            <option value="price-high">Price: high to low</option>
+          </select>
+        </div>
+
         {loading ? (
           <p className="loading-text">Loading listings...</p>
         ) : itemsLoadError ? (
@@ -861,7 +884,7 @@ function App() {
           </div>
         ) : (
           <div className="items-grid">
-            {filteredItems.map((item) => (
+            {sortedItems.map((item) => (
               <div className="item-card" key={item._id}>
                 <div className="image-container">
                   <img

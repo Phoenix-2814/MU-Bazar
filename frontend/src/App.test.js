@@ -114,6 +114,60 @@ test('category filters expose their selected state and can be cleared when no li
   expect(screen.getByRole('button', { name: 'All Items' })).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('sorts matching listings by newest and price in either direction', async () => {
+  axios.get.mockResolvedValue({
+    data: [
+      {
+        _id: 'middle-listing',
+        title: 'Middle price',
+        description: 'Listing',
+        price: 200,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        createdAt: '2026-10-08T12:00:00.000Z',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+      {
+        _id: 'cheap-listing',
+        title: 'Lowest price',
+        description: 'Listing',
+        price: 100,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        createdAt: '2026-10-07T12:00:00.000Z',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+      {
+        _id: 'new-listing',
+        title: 'Newest listing',
+        description: 'Listing',
+        price: 300,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        createdAt: '2026-10-09T12:00:00.000Z',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+    ],
+  });
+
+  render(<App />);
+  await screen.findByText('Newest listing');
+  const listingTitles = () => screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent);
+  const sortSelect = screen.getByRole('combobox', { name: 'Sort by' });
+
+  expect(listingTitles()).toEqual(['Newest listing', 'Middle price', 'Lowest price']);
+  fireEvent.change(sortSelect, { target: { value: 'price-low' } });
+  expect(listingTitles()).toEqual(['Lowest price', 'Middle price', 'Newest listing']);
+  fireEvent.change(sortSelect, { target: { value: 'price-high' } });
+  expect(listingTitles()).toEqual(['Newest listing', 'Middle price', 'Lowest price']);
+});
+
 test('shows the messages dot when the signed-in user has unread messages', async () => {
   localStorage.setItem('user', JSON.stringify({ _id: 'seller-id', name: 'Seller' }));
   localStorage.setItem('token', 'seller-token');
