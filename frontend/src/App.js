@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import './App.css';
@@ -140,7 +140,7 @@ function App() {
     }
   }, [user]);
 
-  const publishNotification = (notification) => {
+  const publishNotification = useCallback((notification) => {
     const entry = {
       ...notification,
       id: `${notification.type}-${notification.id || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -160,9 +160,9 @@ function App() {
         console.error('Could not show browser notification:', err);
       }
     }
-  };
+  }, []);
 
-  const fetchItems = async ({ background = false, notifyNewListings = false } = {}) => {
+  const fetchItems = useCallback(async ({ background = false, notifyNewListings = false } = {}) => {
     try {
       if (!background) {
         setLoading(true);
@@ -210,11 +210,11 @@ function App() {
     } finally {
       if (!background) setLoading(false);
     }
-  };
+  }, [currentUserId, publishNotification]);
 
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [fetchItems]);
 
   useEffect(() => {
     localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
@@ -233,7 +233,7 @@ function App() {
       window.removeEventListener('focus', refreshListings);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, []);
+  }, [fetchItems]);
 
   useEffect(() => {
     if (activePage === 'profile') {
@@ -368,7 +368,7 @@ function App() {
     const nextExpiry = Math.min(...soldExpiries);
     const timeout = setTimeout(fetchItems, Math.max(0, nextExpiry - Date.now() + 50));
     return () => clearTimeout(timeout);
-  }, [items]);
+  }, [items, fetchItems]);
 
   useEffect(() => {
     let cancelled = false;
