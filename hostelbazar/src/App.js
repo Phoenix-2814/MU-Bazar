@@ -39,7 +39,6 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [showPostModal, setShowPostModal] = useState(false);
-  const [showProfileSection, setShowProfileSection] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editItemModal, setEditItemModal] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -136,10 +135,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (showProfileSection) {
+    if (activePage === 'profile') {
       profilePageRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     }
-  }, [showProfileSection]);
+  }, [activePage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -486,7 +485,6 @@ function App() {
     setToken('');
     setUnreadMessageCount(0);
     setActivePage('marketplace');
-    setShowProfileSection(false);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setIsEditingProfile(false);
@@ -742,7 +740,7 @@ function App() {
                 className="profile-badge"
                 onClick={() => {
                   setIsEditingProfile(false);
-                  setShowProfileSection(true);
+                  setActivePage('profile');
                 }}
               >
                 {user.profilePic ? (
@@ -1137,167 +1135,6 @@ function App() {
                 ))}
               </ul>
             )}
-          </section>
-        )}
-        {showProfileSection && user && (
-          <section className="profile-page profile-inline-section" ref={profilePageRef}>
-            <div className="products-page-heading">
-              <div>
-                <h2>My Profile</h2>
-                <p>Manage your account details and marketplace activity.</p>
-              </div>
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={() => setShowProfileSection(false)}
-              >
-                Close profile
-              </button>
-            </div>
-            <div className="profile-page-card">
-              {isEditingProfile ? (
-                <form onSubmit={handleUpdateProfile} className="profile-edit-form">
-                  <h3>Edit Profile</h3>
-                  <div className="profile-pic-upload">
-                    {profileForm.profilePicPreview ? (
-                      <div
-                        className="profile-large-avatar-img secure-bg-avatar"
-                        style={{ backgroundImage: `url(${profileForm.profilePicPreview})` }}
-                        onContextMenu={preventContextMenu}
-                      />
-                    ) : (
-                      <div className="profile-large-avatar">
-                        {profileForm.name ? profileForm.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                    )}
-                    <label className="btn-upload-pic">
-                      Change Profile Picture
-                      <input type="file" accept="image/*" onChange={handleProfilePicChange} hidden />
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Phone Number"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    required
-                  />
-                  <select
-                    aria-label="Residency type"
-                    value={profileForm.residencyType}
-                    onChange={(e) => setProfileForm({ ...profileForm, residencyType: e.target.value })}
-                  >
-                    <option value="hosteler">Hosteler</option>
-                    <option value="outsider">Outsider</option>
-                  </select>
-                  {profileForm.residencyType === 'hosteler' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Hostel Name"
-                        value={profileForm.hostelName}
-                        onChange={(e) => setProfileForm({ ...profileForm, hostelName: e.target.value })}
-                        required
-                      />
-                      <input
-                        type="text"
-                        placeholder="Hostel Block"
-                        value={profileForm.hostelBlock}
-                        onChange={(e) => setProfileForm({ ...profileForm, hostelBlock: e.target.value })}
-                        required
-                      />
-                      <input
-                        type="text"
-                        placeholder="Room Number"
-                        value={profileForm.roomNumber}
-                        onChange={(e) => setProfileForm({ ...profileForm, roomNumber: e.target.value })}
-                        required
-                      />
-                    </>
-                  )}
-                  <div className="profile-actions-row">
-                    <button type="submit" className="btn-submit" disabled={isUpdatingProfile}>
-                      {isUpdatingProfile ? 'Saving profile...' : 'Save Changes'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-cancel"
-                      onClick={() => setIsEditingProfile(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="profile-header">
-                    {user.profilePic ? (
-                      <div
-                        className="profile-large-avatar-img secure-bg-avatar"
-                        style={{ backgroundImage: `url(${user.profilePic})` }}
-                        onContextMenu={preventContextMenu}
-                      />
-                    ) : (
-                      <div className="profile-large-avatar">
-                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                    )}
-                    <h2>{user.name}</h2>
-                    <p className="profile-email">{user.email}</p>
-                  </div>
-                  <div className="profile-details">
-                    <div className="detail-item">
-                      <span>Phone:</span> <strong>{user.phone || 'N/A'}</strong>
-                    </div>
-                    <div className="detail-item">
-                      <span>Residency:</span>
-                      <strong>
-                        {user.residencyType === 'outsider'
-                          ? 'Outsider'
-                          : [
-                            user.hostelName,
-                            user.hostelBlock && `Block ${user.hostelBlock}`,
-                            user.roomNumber && `Room ${user.roomNumber}`,
-                          ].filter(Boolean).join(' · ') || 'Hosteler'}
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="profile-actions-row">
-                    <button
-                      className="btn-edit-profile"
-                      onClick={() => {
-                        setShowProfileSection(false);
-                        setActivePage('my-products');
-                      }}
-                    >
-                      My Products ({myActiveListings.length})
-                    </button>
-                    <button
-                      className="btn-edit-profile"
-                      onClick={() => {
-                        setShowProfileSection(false);
-                        setActivePage('history');
-                      }}
-                    >
-                      History ({mySoldHistoryListings.length})
-                    </button>
-                    <button className="btn-edit-profile" onClick={() => setIsEditingProfile(true)}>
-                      Edit Profile
-                    </button>
-                    <button className="btn-logout-full" onClick={handleLogout}>
-                      Logout
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
           </section>
         )}
       </main>
