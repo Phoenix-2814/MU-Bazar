@@ -62,6 +62,31 @@ test('shows the messages dot when the signed-in user has unread messages', async
   expect(await screen.findByLabelText('You have unread messages')).toBeInTheDocument();
 });
 
+test('opens profile details in the page instead of a popup', async () => {
+  localStorage.setItem('user', JSON.stringify({
+    _id: 'profile-user',
+    name: 'Profile Student',
+    email: 'student@marwadiuniversity.ac.in',
+    phone: '9876543210',
+    residencyType: 'outsider',
+  }));
+  localStorage.setItem('token', 'profile-token');
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/reports/admin/access')) {
+      return Promise.resolve({ data: { isAdmin: false } });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  render(<App />);
+  fireEvent.click(await screen.findByText('Profile Student'));
+
+  expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
+  expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
+  expect(screen.getByText('9876543210')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
 test('closes registration and prominently confirms verification email was sent', async () => {
   axios.get.mockResolvedValue({ data: [] });
   axios.post.mockResolvedValue({
