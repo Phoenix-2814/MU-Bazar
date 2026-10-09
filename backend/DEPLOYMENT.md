@@ -32,6 +32,10 @@ new uploads require `IMAGEKIT_PRIVATE_KEY` to be configured on the backend.
 Listing reports are stored in MongoDB. Configure `ADMIN_EMAILS` on the backend with the exact email
 addresses of existing MU Bazar accounts that should receive the Reports navigation button and have
 permission to review reports. The backend checks this allowlist for every admin request.
+Admins can temporarily hide or restore reported listings from the report review page. Hidden listings
+are excluded from the public marketplace and cannot start new buyer conversations; they remain hidden
+until an authorized admin restores them. The seller can still see that their listing is hidden in My
+Products.
 
 ## Frontend
 

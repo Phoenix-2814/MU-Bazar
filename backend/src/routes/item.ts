@@ -10,10 +10,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const items = await Listing.find({
-      $or: [
-        { isSold: false },
-        { isSold: true, updatedAt: { $gte: oneDayAgo } },
-      ],
+      isHidden: { $ne: true },
+      $or: [{ isSold: false }, { isSold: true, updatedAt: { $gte: oneDayAgo } }],
     })
       .populate('seller', 'name residencyType hostelName hostelBlock profilePic')
       .sort({ createdAt: -1 });

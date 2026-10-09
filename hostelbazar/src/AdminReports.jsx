@@ -26,6 +26,7 @@ export default function AdminReports({ token }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingReportId, setSavingReportId] = useState('');
+  const [savingListingId, setSavingListingId] = useState('');
   const [adminNotes, setAdminNotes] = useState({});
 
   const loadReports = useCallback(async () => {
@@ -69,6 +70,33 @@ export default function AdminReports({ token }) {
     }
   };
 
+  const setListingVisibility = async (report, isHidden) => {
+    const listingId = report.listing?._id;
+    if (!listingId) {
+      setError('This report no longer has an associated listing.');
+      return;
+    }
+
+    setSavingListingId(listingId);
+    setError('');
+    try {
+      const response = await axios.patch(
+        `${API_BASE_URL}/api/reports/admin/listings/${listingId}/visibility`,
+        { isHidden },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReports((previous) => previous.map((item) => (
+        item.listing?._id === listingId
+          ? { ...item, listing: response.data.listing }
+          : item
+      )));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not change listing visibility.');
+    } finally {
+      setSavingListingId('');
+    }
+  };
+
   const openReports = reports.filter((report) => report.status === 'open');
 
   return (
@@ -101,6 +129,25 @@ export default function AdminReports({ token }) {
                   </div>
                   <span className={`report-status report-status-${report.status}`}>{report.status}</span>
                 </div>
+                {report.listing && (
+                  <div className="admin-listing-moderation">
+                    <span className={`report-status ${report.listing.isHidden ? 'report-status-dismissed' : 'report-status-resolved'}`}>
+                      {report.listing.isHidden ? 'Hidden from marketplace' : 'Visible in marketplace'}
+                    </span>
+                    <button
+                      type="button"
+                      className={report.listing.isHidden ? 'btn-report-resolve' : 'btn-report-dismiss'}
+                      disabled={savingListingId === report.listing._id}
+                      onClick={() => setListingVisibility(report, !report.listing.isHidden)}
+                    >
+                      {savingListingId === report.listing._id
+                        ? 'Updating...'
+                        : report.listing.isHidden
+                          ? 'Restore listing'
+                          : 'Hide listing'}
+                    </button>
+                  </div>
+                )}
                 <dl className="admin-report-meta">
                   <div>
                     <dt>Seller</dt>

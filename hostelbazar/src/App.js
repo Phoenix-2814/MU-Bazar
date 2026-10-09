@@ -932,6 +932,11 @@ function App() {
                         <span>
                           <strong>{item.title}</strong>
                           <small>₹{item.price} · {item.category.replace('_', ' ')}</small>
+                          {item.isHidden && (
+                            <small className="listing-hidden-notice">
+                              Hidden from the marketplace pending admin review.
+                            </small>
+                          )}
                         </span>
                       </div>
                       <div className="action-buttons">

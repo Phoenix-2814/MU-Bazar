@@ -8,6 +8,7 @@ export interface IListing extends Document {
   condition: string;
   images: string[];
   isSold: boolean;
+  isHidden: boolean;
   seller: mongoose.Types.ObjectId;
 }
 
@@ -20,6 +21,7 @@ const ListingSchema: Schema = new Schema(
     condition: { type: String, default: 'USED_GOOD' },
     images: [{ type: String }],
     isSold: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false, required: true },
     seller: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }

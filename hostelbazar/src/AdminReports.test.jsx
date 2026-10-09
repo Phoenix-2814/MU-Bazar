@@ -9,8 +9,10 @@ test('lets an admin resolve a report with a review note', async () => {
     data: [{
       _id: 'report-1',
       listing: {
+        _id: 'listing-1',
         title: 'Suspicious listing',
         price: 300,
+        isHidden: false,
         seller: {
           name: 'Seller',
           email: 'seller@example.com',
@@ -32,7 +34,7 @@ test('lets an admin resolve a report with a review note', async () => {
   axios.patch.mockResolvedValue({
     data: {
       _id: 'report-1',
-      listing: { title: 'Suspicious listing', price: 300 },
+      listing: { _id: 'listing-1', title: 'Suspicious listing', price: 300, isHidden: false },
       reporter: { name: 'Buyer', email: 'buyer@example.com' },
       reason: 'scam',
       status: 'resolved',
@@ -59,4 +61,44 @@ test('lets an admin resolve a report with a review note', async () => {
     { headers: { Authorization: 'Bearer admin-token' } }
   ));
   expect(await screen.findByText('Resolved by Admin: Listing reviewed.')).toBeInTheDocument();
+});
+
+test('lets an admin hide and restore a reported listing', async () => {
+  const listing = { _id: 'listing-1', title: 'Reported book', price: 200, isHidden: false };
+  axios.get.mockResolvedValue({
+    data: [{
+      _id: 'report-2',
+      listing,
+      reporter: { name: 'Buyer', email: 'buyer@example.com' },
+      reason: 'misleading',
+      status: 'open',
+      adminNote: '',
+      createdAt: '2026-10-09T00:00:00.000Z',
+    }],
+  });
+  axios.patch.mockResolvedValueOnce({
+    data: { listing: { ...listing, isHidden: true } },
+  }).mockResolvedValueOnce({
+    data: { listing: { ...listing, isHidden: false } },
+  });
+
+  render(<AdminReports token="admin-token" />);
+
+  expect(await screen.findByText('Visible in marketplace')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Hide listing' }));
+
+  await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/reports\/admin\/listings\/listing-1\/visibility$/),
+    { isHidden: true },
+    { headers: { Authorization: 'Bearer admin-token' } }
+  ));
+  expect(await screen.findByText('Hidden from marketplace')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Restore listing' }));
+  await waitFor(() => expect(axios.patch).toHaveBeenLastCalledWith(
+    expect.stringMatching(/\/api\/reports\/admin\/listings\/listing-1\/visibility$/),
+    { isHidden: false },
+    { headers: { Authorization: 'Bearer admin-token' } }
+  ));
+  expect(await screen.findByText('Visible in marketplace')).toBeInTheDocument();
 });

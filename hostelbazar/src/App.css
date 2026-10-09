@@ -565,6 +565,22 @@ body {
   background: #e2e8f0;
 }
 
+.admin-listing-moderation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.listing-hidden-notice {
+  color: #b91c1c !important;
+  font-weight: 700;
+}
+
 .admin-report-meta {
   display: grid;
   gap: 8px;

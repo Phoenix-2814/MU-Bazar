@@ -96,7 +96,7 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
     const reports = await ListingReport.find()
       .populate({
         path: 'listing',
-        select: 'title price images seller',
+        select: 'title price images seller isHidden',
         populate: {
           path: 'seller',
           select: 'name email phone residencyType hostelName hostelBlock roomNumber',
@@ -112,6 +112,53 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
     res.status(500).json({ message: 'Could not fetch listing reports.' });
   }
 });
+
+router.patch(
+  '/admin/listings/:listingId/visibility',
+  authenticateToken,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    const { listingId } = req.params;
+    const { isHidden } = req.body || {};
+
+    if (!userId) {
+      res.status(401).json({ message: 'Authentication required.' });
+      return;
+    }
+    if (!mongoose.isValidObjectId(listingId)) {
+      res.status(400).json({ message: 'Invalid listing ID.' });
+      return;
+    }
+    if (typeof isHidden !== 'boolean') {
+      res.status(400).json({ message: 'isHidden must be true or false.' });
+      return;
+    }
+
+    try {
+      if (!(await isAdmin(userId))) {
+        res.status(403).json({ message: 'Admin access required.' });
+        return;
+      }
+      const listing = await Listing.findByIdAndUpdate(
+        listingId,
+        { $set: { isHidden } },
+        { new: true, runValidators: true }
+      ).populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber');
+
+      if (!listing) {
+        res.status(404).json({ message: 'Listing not found.' });
+        return;
+      }
+      res.json({
+        message: isHidden ? 'Listing hidden from the marketplace.' : 'Listing restored to the marketplace.',
+        listing,
+      });
+    } catch (err) {
+      console.error('Failed to change listing visibility:', err);
+      res.status(500).json({ message: 'Could not update listing visibility.' });
+    }
+  }
+);
 
 router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user?.id;
@@ -147,7 +194,7 @@ router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res
     )
       .populate({
         path: 'listing',
-        select: 'title price images seller',
+        select: 'title price images seller isHidden',
         populate: {
           path: 'seller',
           select: 'name email phone residencyType hostelName hostelBlock roomNumber',

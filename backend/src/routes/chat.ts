@@ -16,9 +16,13 @@ router.post('/conversation', authenticateToken, async (req: AuthRequest, res: Re
   }
 
   try {
-    const listing = await Listing.findById(itemId).select('seller title price images isSold');
+    const listing = await Listing.findById(itemId).select('seller title price images isSold isHidden');
     if (!listing) {
       res.status(404).json({ message: 'Listing not found.' });
+      return;
+    }
+    if (listing.isHidden) {
+      res.status(410).json({ message: 'This listing is temporarily unavailable for new conversations.' });
       return;
     }
 
