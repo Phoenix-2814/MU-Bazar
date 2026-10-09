@@ -108,23 +108,32 @@ router.put(
       }
 
       const { title, description, price, category, condition } = req.body;
+      const updateFields: Record<string, string | number | string[]> = {};
 
-      if (title) listing.title = title;
-      if (description) listing.description = description;
-      if (price) listing.price = Number(price);
-      if (category) listing.category = category;
-      if (condition) listing.condition = condition;
+      if (title) updateFields.title = title;
+      if (description) updateFields.description = description;
+      if (price) updateFields.price = Number(price);
+      if (category) updateFields.category = category;
+      if (condition) updateFields.condition = condition;
 
       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        listing.images = await Promise.all(
+        updateFields.images = await Promise.all(
           req.files.map((file) => uploadImage(file, '/mubazar/listings'))
         );
       }
 
-      await listing.save();
-      await listing.populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber profilePic');
+      const updatedListing = await Listing.findOneAndUpdate(
+        { _id: req.params.id, seller: userId },
+        { $set: updateFields },
+        { new: true, runValidators: true }
+      );
+      if (!updatedListing) {
+        res.status(404).json({ message: 'Listing was removed before the update completed.' });
+        return;
+      }
+      await updatedListing.populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber profilePic');
 
-      res.json({ message: 'Listing updated successfully', item: listing });
+      res.json({ message: 'Listing updated successfully', item: updatedListing });
     } catch (err: any) {
       console.error('Error modifying item:', err);
       res.status(500).json({ message: err.message || 'Failed to update item' });
