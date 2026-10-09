@@ -21,7 +21,7 @@ test('renders the HostelBazar marketplace', async () => {
   axios.get.mockResolvedValue({ data: [] });
   render(<App />);
   expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
-  expect(await screen.findByText(/no items found/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
 });
 
 test('shows public listings without requiring a login', async () => {
@@ -46,6 +46,72 @@ test('shows public listings without requiring a login', async () => {
   expect(await screen.findByText('Public listing')).toBeInTheDocument();
   expect(axios.get).toHaveBeenCalledWith(expect.stringMatching(/\/api\/items$/));
   expect(localStorage.getItem('token')).toBeNull();
+});
+
+test('search matches multiple terms across listing details and seller, ignoring case and extra spaces', async () => {
+  axios.get.mockResolvedValue({
+    data: [
+      {
+        _id: 'chemistry-book',
+        title: 'Organic Chemistry Textbook',
+        description: 'Used for first year studies',
+        price: 150,
+        category: 'BOOKS',
+        condition: 'USED_LIKE_NEW',
+        images: [],
+        isSold: false,
+        seller: { name: 'Krishna Bhaskar', residencyType: 'outsider' },
+      },
+      {
+        _id: 'calculator',
+        title: 'Scientific Calculator',
+        description: 'Great condition',
+        price: 300,
+        category: 'ELECTRONICS',
+        condition: 'USED_GOOD',
+        images: [],
+        isSold: false,
+        seller: { name: 'Riya Shah', residencyType: 'hosteler' },
+      },
+    ],
+  });
+
+  render(<App />);
+  const search = screen.getByRole('textbox', { name: 'Search listings' });
+  fireEvent.change(search, { target: { value: '  CHEMISTRY   krishna  ' } });
+
+  expect(await screen.findByText('Organic Chemistry Textbook')).toBeInTheDocument();
+  expect(screen.queryByText('Scientific Calculator')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Search Results' })).toBeInTheDocument();
+});
+
+test('category filters expose their selected state and can be cleared when no listings match', async () => {
+  axios.get.mockResolvedValue({
+    data: [{
+      _id: 'book-listing',
+      title: 'Organic Chemistry Textbook',
+      description: 'First year book',
+      price: 150,
+      category: 'BOOKS',
+      condition: 'USED_GOOD',
+      images: [],
+      isSold: false,
+      seller: { name: 'Seller', residencyType: 'outsider' },
+    }],
+  });
+
+  render(<App />);
+  const booksButton = screen.getByRole('button', { name: 'Books & Notes' });
+  fireEvent.click(booksButton);
+  expect(booksButton).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('heading', { name: 'Books & Notes Listings' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Electronics' }));
+  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear search and category filters' }));
+
+  expect(await screen.findByText('Organic Chemistry Textbook')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'All Items' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('shows the messages dot when the signed-in user has unread messages', async () => {

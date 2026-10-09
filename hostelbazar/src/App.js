@@ -10,6 +10,16 @@ import AdminReports from './AdminReports';
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const CATEGORY_OPTIONS = [
+  { key: 'ALL', label: 'All Items' },
+  { key: 'BOOKS', label: 'Books & Notes' },
+  { key: 'ELECTRONICS', label: 'Electronics' },
+  { key: 'CLOTHING', label: 'Clothing' },
+  { key: 'HOSTEL_ESSENTIALS', label: 'Hostel Essentials' },
+  { key: 'OTHER', label: 'Others' },
+];
+
+const normalizeSearchText = (value) => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
 function App() {
   const [items, setItems] = useState([]);
@@ -648,6 +658,7 @@ function App() {
     e.preventDefault();
   };
 
+  const searchTerms = normalizeSearchText(searchQuery).split(' ').filter(Boolean);
   const filteredItems = items.filter((item) => {
     const sellerId = item.seller?._id || item.seller;
     const isOwnProduct = currentUserId && sellerId === currentUserId;
@@ -657,10 +668,23 @@ function App() {
 
     if (isOwnProduct || soldListingExpired) return false;
 
-    const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
-    const matchesSearch =
-      (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === 'ALL' ||
+      normalizeSearchText(item.category) === normalizeSearchText(selectedCategory);
+    const seller = item.seller && typeof item.seller === 'object' ? item.seller : {};
+    const searchableText = normalizeSearchText([
+      item.title,
+      item.description,
+      item.price,
+      item.category,
+      CATEGORY_OPTIONS.find((category) => category.key === item.category)?.label,
+      item.condition,
+      seller.name,
+      seller.residencyType,
+      seller.hostelName,
+      seller.hostelBlock,
+    ].filter(Boolean).join(' '));
+    const matchesSearch = searchTerms.every((term) => searchableText.includes(term));
 
     return matchesCategory && matchesSearch;
   });
@@ -697,10 +721,21 @@ function App() {
         <div className="search-bar">
           <input
             type="text"
-            placeholder="Search books, electronics, hostel gear..."
+            aria-label="Search listings"
+            placeholder="Search by item, details, or seller..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              className="clear-search-button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+            >
+              &times;
+            </button>
+          )}
         </div>
 
         <div className="nav-actions">
@@ -773,18 +808,13 @@ function App() {
       </header>
 
       {/* Category Bar */}
-      {activePage === 'marketplace' && <nav className="category-bar">
-        {[
-          { key: 'ALL', label: 'All Items' },
-          { key: 'BOOKS', label: 'Books & Notes' },
-          { key: 'ELECTRONICS', label: 'Electronics' },
-          { key: 'CLOTHING', label: 'Clothing' },
-          { key: 'HOSTEL_ESSENTIALS', label: 'Hostel Essentials' },
-          { key: 'OTHER', label: 'Others' },
-        ].map((cat) => (
+      {activePage === 'marketplace' && <nav className="category-bar" aria-label="Listing categories">
+        {CATEGORY_OPTIONS.map((cat) => (
           <button
             key={cat.key}
+            type="button"
             className={`cat-btn ${selectedCategory === cat.key ? 'active' : ''}`}
+            aria-pressed={selectedCategory === cat.key}
             onClick={() => setSelectedCategory(cat.key)}
           >
             {cat.label}
@@ -797,9 +827,11 @@ function App() {
         {activePage === 'marketplace' ? (
           <>
         <h2>
-          {selectedCategory === 'ALL'
-            ? 'Recent Listings'
-            : `${selectedCategory.replace('_', ' ')} Listings`}
+          {searchQuery.trim()
+            ? 'Search Results'
+            : selectedCategory === 'ALL'
+              ? 'Recent Listings'
+              : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
         </h2>
 
         {loading ? (
@@ -812,7 +844,21 @@ function App() {
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
-          <p className="no-items">No items found matching your filter.</p>
+          <div className="no-items">
+            <p>No listings match your search or selected category.</p>
+            {(searchQuery || selectedCategory !== 'ALL') && (
+              <button
+                type="button"
+                className="clear-filters-button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('ALL');
+                }}
+              >
+                Clear search and category filters
+              </button>
+            )}
+          </div>
         ) : (
           <div className="items-grid">
             {filteredItems.map((item) => (
