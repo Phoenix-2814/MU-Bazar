@@ -265,7 +265,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [token, currentUserId, publishNotification]);
+  }, [token, currentUserId]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return undefined;
@@ -453,7 +453,7 @@ function App() {
       document.removeEventListener('visibilitychange', refreshUnreadWhenVisible);
       socket.disconnect();
     };
-  }, [token, currentUserId]);
+  }, [token, currentUserId, publishNotification]);
 
   const handleRegisterPicChange = (e) => {
     const file = e.target.files[0];
