@@ -75,7 +75,19 @@ test('opens profile details in the page instead of a popup', async () => {
     if (url.endsWith('/api/reports/admin/access')) {
       return Promise.resolve({ data: { isAdmin: false } });
     }
-    return Promise.resolve({ data: [] });
+    return Promise.resolve({
+      data: [{
+        _id: 'still-visible-listing',
+        title: 'Marketplace remains visible',
+        description: 'The current page should remain underneath the profile.',
+        price: 100,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        images: [],
+        isSold: false,
+        seller: { name: 'Another Seller', residencyType: 'outsider' },
+      }],
+    });
   });
 
   render(<App />);
@@ -84,6 +96,7 @@ test('opens profile details in the page instead of a popup', async () => {
   expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
   expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
   expect(screen.getByText('9876543210')).toBeInTheDocument();
+  expect(screen.getByText('Marketplace remains visible')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
