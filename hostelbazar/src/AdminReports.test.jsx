@@ -11,7 +11,15 @@ test('lets an admin resolve a report with a review note', async () => {
       listing: {
         title: 'Suspicious listing',
         price: 300,
-        seller: { name: 'Seller', email: 'seller@example.com' },
+        seller: {
+          name: 'Seller',
+          email: 'seller@example.com',
+          phone: '9876543210',
+          residencyType: 'hosteler',
+          hostelName: 'MU Hostel',
+          hostelBlock: 'B',
+          roomNumber: '204',
+        },
       },
       reporter: { name: 'Buyer', email: 'buyer@example.com' },
       reason: 'scam',
@@ -36,6 +44,10 @@ test('lets an admin resolve a report with a review note', async () => {
   render(<AdminReports token="admin-token" />);
 
   expect(await screen.findByText('Suspicious listing')).toBeInTheDocument();
+  expect(screen.getByText('Seller email')).toBeInTheDocument();
+  expect(screen.getByText('seller@example.com')).toBeInTheDocument();
+  expect(screen.getByText('9876543210')).toBeInTheDocument();
+  expect(screen.getByText('MU Hostel · Block B · Room 204')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Admin review note'), {
     target: { value: 'Listing reviewed.' },
   });

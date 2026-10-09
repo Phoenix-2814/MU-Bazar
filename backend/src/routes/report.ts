@@ -94,9 +94,15 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
       return;
     }
     const reports = await ListingReport.find()
-      .populate('listing', 'title price images seller')
+      .populate({
+        path: 'listing',
+        select: 'title price images seller',
+        populate: {
+          path: 'seller',
+          select: 'name email phone residencyType hostelName hostelBlock roomNumber',
+        },
+      })
       .populate('reporter', 'name email')
-      .populate('listing.seller', 'name email')
       .populate('reviewedBy', 'name email')
       .sort({ createdAt: -1 })
       .limit(100);
@@ -139,9 +145,15 @@ router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res
       { $set: { status, adminNote: adminNote.trim(), reviewedBy: userId } },
       { new: true, runValidators: true }
     )
-      .populate('listing', 'title price images seller')
+      .populate({
+        path: 'listing',
+        select: 'title price images seller',
+        populate: {
+          path: 'seller',
+          select: 'name email phone residencyType hostelName hostelBlock roomNumber',
+        },
+      })
       .populate('reporter', 'name email')
-      .populate('listing.seller', 'name email')
       .populate('reviewedBy', 'name email');
     if (!report) {
       res.status(404).json({ message: 'Report not found.' });

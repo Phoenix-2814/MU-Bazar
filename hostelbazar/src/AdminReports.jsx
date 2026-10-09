@@ -11,6 +11,16 @@ const formatReason = (reason) => ({
   other: 'Something else',
 }[reason] || reason);
 
+const getSellerResidency = (seller) => {
+  if (!seller) return 'Seller details unavailable';
+  if (seller.residencyType === 'outsider') return 'Outsider';
+  return [
+    seller.hostelName,
+    seller.hostelBlock && `Block ${seller.hostelBlock}`,
+    seller.roomNumber && `Room ${seller.roomNumber}`,
+  ].filter(Boolean).join(' · ') || 'Hosteler';
+};
+
 export default function AdminReports({ token }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,70 +87,77 @@ export default function AdminReports({ token }) {
         <p className="no-items">There are no listing reports to review.</p>
       ) : (
         <div className="admin-report-list">
-          {reports.map((report) => (
-            <article className="admin-report-card" key={report._id}>
-              <div className="admin-report-listing">
-                {report.listing?.images?.[0] && (
-                  <img src={report.listing.images[0]} alt="" />
-                )}
-                <div>
-                  <h3>{report.listing?.title || 'Listing no longer available'}</h3>
-                  {report.listing?.price != null && <strong>₹{report.listing.price}</strong>}
-                  {report.listing?.seller && (
-                    <p>Seller: {report.listing.seller.name} · {report.listing.seller.email}</p>
+          {reports.map((report) => {
+            const seller = report.listing?.seller;
+            return (
+              <article className="admin-report-card" key={report._id}>
+                <div className="admin-report-listing">
+                  {report.listing?.images?.[0] && (
+                    <img src={report.listing.images[0]} alt="" />
                   )}
+                  <div>
+                    <h3>{report.listing?.title || 'Listing no longer available'}</h3>
+                    {report.listing?.price != null && <strong>₹{report.listing.price}</strong>}
+                  </div>
+                  <span className={`report-status report-status-${report.status}`}>{report.status}</span>
                 </div>
-                <span className={`report-status report-status-${report.status}`}>{report.status}</span>
-              </div>
-              <dl className="admin-report-meta">
-                <div><dt>Reason</dt><dd>{formatReason(report.reason)}</dd></div>
-                <div>
-                  <dt>Reported by</dt>
-                  <dd>{report.reporter?.name || 'Unknown'} · {report.reporter?.email || 'Email unavailable'}</dd>
-                </div>
-                <div><dt>Submitted</dt><dd>{new Date(report.createdAt).toLocaleString()}</dd></div>
-                {report.details && <div><dt>Details</dt><dd>{report.details}</dd></div>}
-              </dl>
-              <label htmlFor={`admin-note-${report._id}`}>Admin review note</label>
-              <textarea
-                id={`admin-note-${report._id}`}
-                value={adminNotes[report._id] || ''}
-                maxLength={1000}
-                onChange={(event) => setAdminNotes({
-                  ...adminNotes,
-                  [report._id]: event.target.value,
-                })}
-                placeholder="Optional note about your decision"
-                disabled={report.status !== 'open' || savingReportId === report._id}
-              />
-              {report.status === 'open' ? (
-                <div className="admin-report-actions">
-                  <button
-                    type="button"
-                    className="btn-report-resolve"
-                    disabled={savingReportId === report._id}
-                    onClick={() => updateReport(report, 'resolved')}
-                  >
-                    Resolve
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-report-dismiss"
-                    disabled={savingReportId === report._id}
-                    onClick={() => updateReport(report, 'dismissed')}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              ) : (
-                <p className="report-reviewed-note">
-                  {report.status === 'resolved' ? 'Resolved' : 'Dismissed'}
-                  {report.reviewedBy?.name ? ` by ${report.reviewedBy.name}` : ''}
-                  {report.adminNote ? `: ${report.adminNote}` : ''}
-                </p>
-              )}
-            </article>
-          ))}
+                <dl className="admin-report-meta">
+                  <div>
+                    <dt>Seller</dt>
+                    <dd>{seller?.name || 'Seller details unavailable'}</dd>
+                  </div>
+                  <div><dt>Seller email</dt><dd>{seller?.email || 'Unavailable'}</dd></div>
+                  <div><dt>Seller phone</dt><dd>{seller?.phone || 'Not provided'}</dd></div>
+                  <div><dt>Seller residency</dt><dd>{getSellerResidency(seller)}</dd></div>
+                  <div><dt>Reason</dt><dd>{formatReason(report.reason)}</dd></div>
+                  <div>
+                    <dt>Reported by</dt>
+                    <dd>{report.reporter?.name || 'Unknown'} · {report.reporter?.email || 'Email unavailable'}</dd>
+                  </div>
+                  <div><dt>Submitted</dt><dd>{new Date(report.createdAt).toLocaleString()}</dd></div>
+                  {report.details && <div><dt>Details</dt><dd>{report.details}</dd></div>}
+                </dl>
+                <label htmlFor={`admin-note-${report._id}`}>Admin review note</label>
+                <textarea
+                  id={`admin-note-${report._id}`}
+                  value={adminNotes[report._id] || ''}
+                  maxLength={1000}
+                  onChange={(event) => setAdminNotes({
+                    ...adminNotes,
+                    [report._id]: event.target.value,
+                  })}
+                  placeholder="Optional note about your decision"
+                  disabled={report.status !== 'open' || savingReportId === report._id}
+                />
+                {report.status === 'open' ? (
+                  <div className="admin-report-actions">
+                    <button
+                      type="button"
+                      className="btn-report-resolve"
+                      disabled={savingReportId === report._id}
+                      onClick={() => updateReport(report, 'resolved')}
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-report-dismiss"
+                      disabled={savingReportId === report._id}
+                      onClick={() => updateReport(report, 'dismissed')}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : (
+                  <p className="report-reviewed-note">
+                    {report.status === 'resolved' ? 'Resolved' : 'Dismissed'}
+                    {report.reviewedBy?.name ? ` by ${report.reviewedBy.name}` : ''}
+                    {report.adminNote ? `: ${report.adminNote}` : ''}
+                  </p>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
