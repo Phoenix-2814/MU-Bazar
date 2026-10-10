@@ -444,6 +444,24 @@ test('category filters expose their selected state and can be cleared when no li
   expect(screen.getByRole('button', { name: 'All Items' })).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('dark mode toggle applies the saved theme and persists changes', async () => {
+  localStorage.setItem('mubazar-theme', 'dark');
+  axios.get.mockResolvedValue({ data: [] });
+
+  render(<App />);
+
+  const themeToggle = screen.getByRole('switch', { name: 'Dark mode' });
+  await waitFor(() => expect(document.documentElement).toHaveAttribute('data-theme', 'dark'));
+  expect(themeToggle).toHaveAttribute('aria-checked', 'true');
+  expect(localStorage.getItem('mubazar-theme')).toBe('dark');
+
+  fireEvent.click(themeToggle);
+
+  await waitFor(() => expect(document.documentElement).toHaveAttribute('data-theme', 'light'));
+  expect(themeToggle).toHaveAttribute('aria-checked', 'false');
+  expect(localStorage.getItem('mubazar-theme')).toBe('light');
+});
+
 test('sorts matching listings by newest and price in either direction', async () => {
   axios.get.mockResolvedValue({
     data: [

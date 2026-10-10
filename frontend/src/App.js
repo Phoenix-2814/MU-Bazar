@@ -14,6 +14,7 @@ const LISTINGS_REQUEST_TIMEOUT_MS = 15000;
 const MAX_LISTING_TITLE_LENGTH = 120;
 const MAX_LISTING_DESCRIPTION_LENGTH = 5000;
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+const THEME_STORAGE_KEY = 'mubazar-theme';
 const CATEGORY_OPTIONS = [
   { key: 'ALL', label: 'All Items' },
   { key: 'BOOKS', label: 'Books & Notes' },
@@ -24,6 +25,15 @@ const CATEGORY_OPTIONS = [
 ];
 
 const normalizeSearchText = (value) => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+const getSavedTheme = () => {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (err) {
+    console.error('Failed to load saved theme:', err);
+    return 'light';
+  }
+};
+
 const persistSession = (user, token) => {
   try {
     localStorage.setItem('user', JSON.stringify(user));
@@ -178,6 +188,7 @@ function App() {
   const [reportingItem, setReportingItem] = useState(null);
   const [user, setUser] = useState(savedSession.user);
   const [token, setToken] = useState(savedSession.token);
+  const [theme, setTheme] = useState(getSavedTheme);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [notifications, setNotifications] = useState(() => {
     try {
@@ -224,6 +235,15 @@ function App() {
     const timeout = window.setTimeout(() => setToast(null), 5000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (err) {
+      console.error('Failed to save theme preference:', err);
+    }
+  }, [theme]);
 
   // Modal UI States
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -1104,7 +1124,7 @@ function App() {
   const mySoldHistoryListings = myProducts.filter((item) => item.isSold);
 
   return (
-    <div className="app-container">
+    <div className="app-container" data-theme={theme}>
       {toast && (
         <div
           className={`app-toast app-toast-${toast.type}`}
@@ -1321,17 +1341,32 @@ function App() {
 
       {/* Category Bar */}
       {activePage === 'marketplace' && <nav className="category-bar" aria-label="Listing categories">
-        {CATEGORY_OPTIONS.map((cat) => (
-          <button
-            key={cat.key}
-            type="button"
-            className={`cat-btn ${selectedCategory === cat.key ? 'active' : ''}`}
-            aria-pressed={selectedCategory === cat.key}
-            onClick={() => setSelectedCategory(cat.key)}
-          >
-            {cat.label}
-          </button>
-        ))}
+        <div className="category-options">
+          {CATEGORY_OPTIONS.map((cat) => (
+            <button
+              key={cat.key}
+              type="button"
+              className={`cat-btn ${selectedCategory === cat.key ? 'active' : ''}`}
+              aria-pressed={selectedCategory === cat.key}
+              onClick={() => setSelectedCategory(cat.key)}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="theme-toggle"
+          role="switch"
+          aria-label="Dark mode"
+          aria-checked={theme === 'dark'}
+          onClick={() => setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))}
+        >
+          <span className="theme-toggle-label">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          <span className="theme-toggle-track" aria-hidden="true">
+            <span className="theme-toggle-thumb" />
+          </span>
+        </button>
       </nav>}
 
       {/* Main Content Area */}
