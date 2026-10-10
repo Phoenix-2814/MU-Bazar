@@ -115,7 +115,7 @@ const ListingImage = ({ images, title }) => {
     <>
       <img
         src={activeSrc}
-        alt={`${title}, photo ${activeIndex + 1} of ${imageSources.length}`}
+        alt={`${title} (${activeIndex + 1} of ${imageSources.length})`}
         onError={() => setFailedImages((failed) => ({ ...failed, [activeIndex]: true }))}
       />
       <ListingImageControls

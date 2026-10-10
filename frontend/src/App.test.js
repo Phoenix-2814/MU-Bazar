@@ -184,7 +184,7 @@ test('shows an accessible fallback if a listing image fails to load', async () =
   });
 
   render(<App />);
-  const listingImage = await screen.findByRole('img', { name: 'Listing with missing image, photo 1 of 1' });
+  const listingImage = await screen.findByRole('img', { name: 'Listing with missing image (1 of 1)' });
   fireEvent.error(listingImage);
 
   expect(screen.getByRole('img', { name: 'Listing with missing image: image unavailable' }))
@@ -212,23 +212,23 @@ test('allows buyers to browse all listing photos with accessible controls', asyn
 
   render(<App />);
   const firstPhoto = await screen.findByRole('img', {
-    name: 'Listing photo gallery, photo 1 of 3',
+    name: 'Listing photo gallery (1 of 3)',
   });
   expect(firstPhoto).toHaveAttribute('src', 'https://images.example/front.jpg');
 
   fireEvent.click(screen.getByRole('button', { name: 'Next photo of Listing photo gallery' }));
-  expect(screen.getByRole('img', { name: 'Listing photo gallery, photo 2 of 3' }))
+  expect(screen.getByRole('img', { name: 'Listing photo gallery (2 of 3)' }))
     .toHaveAttribute('src', 'https://images.example/back.jpg');
 
   fireEvent.click(screen.getByRole('button', { name: 'Previous photo of Listing photo gallery' }));
-  const firstPhotoAgain = screen.getByRole('img', { name: 'Listing photo gallery, photo 1 of 3' });
+  const firstPhotoAgain = screen.getByRole('img', { name: 'Listing photo gallery (1 of 3)' });
   expect(firstPhotoAgain).toHaveAttribute('src', 'https://images.example/front.jpg');
   fireEvent.error(firstPhotoAgain);
 
   expect(screen.getByRole('img', { name: 'Listing photo gallery: image unavailable' }))
     .toHaveTextContent('Image unavailable');
   fireEvent.click(screen.getByRole('button', { name: 'Next photo of Listing photo gallery' }));
-  expect(screen.getByRole('img', { name: 'Listing photo gallery, photo 2 of 3' }))
+  expect(screen.getByRole('img', { name: 'Listing photo gallery (2 of 3)' }))
     .toHaveAttribute('src', 'https://images.example/back.jpg');
 });
 
@@ -255,17 +255,17 @@ test('resets the photo carousel when a listing image set changes after refresh',
 
   render(<App />);
   expect(await screen.findByRole('img', {
-    name: 'Refreshed photo gallery, photo 1 of 2',
+    name: 'Refreshed photo gallery (1 of 2)',
   })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Next photo of Refreshed photo gallery' }));
   expect(screen.getByRole('img', {
-    name: 'Refreshed photo gallery, photo 2 of 2',
+    name: 'Refreshed photo gallery (2 of 2)',
   })).toBeInTheDocument();
 
   fireEvent.focus(window);
 
   expect(await screen.findByRole('img', {
-    name: 'Refreshed photo gallery, photo 1 of 1',
+    name: 'Refreshed photo gallery (1 of 1)',
   })).toHaveAttribute('src', 'https://images.example/updated.jpg');
 });
 
