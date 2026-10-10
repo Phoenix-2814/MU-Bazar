@@ -264,7 +264,7 @@ export default function AdminUsers({ token }) {
               <div><dt>Residency</dt><dd>{getResidency(user)}</dd></div>
               <div><dt>Email status</dt><dd>{user.emailVerified ? 'Verified' : 'Unverified'}</dd></div>
               <div><dt>Joined</dt><dd>{new Date(user.createdAt).toLocaleString()}</dd></div>
-              <div><dt>Total listings</dt><dd>{pagination.total}</dd></div>
+              <div><dt>Total listings</dt><dd>{userDetails.pagination.total}</dd></div>
               <div><dt>Account access</dt><dd>Suspension remains active until an admin reactivates the account.</dd></div>
               {user.isSuspended && (
                 <>

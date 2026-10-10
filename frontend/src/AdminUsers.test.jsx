@@ -38,7 +38,7 @@ const userDetails = {
 
 const userListResponse = {
   users: [userRecord],
-  pagination: { page: 1, pageSize: 25, total: 1, totalPages: 1 },
+  pagination: { page: 1, pageSize: 25, total: 3, totalPages: 1 },
   counts: { all: 1, new: 1, suspended: 0 },
 };
 
@@ -84,6 +84,7 @@ test('reviews a user profile and temporarily hides one of their listings', async
   expect(await screen.findByText('MU Hostel · Block B · Room 204')).toBeInTheDocument();
   expect(screen.getByText('seller@marwadiuniversity.ac.in')).toBeInTheDocument();
   expect(screen.getByText('Physics textbook')).toBeInTheDocument();
+  expect(screen.getByText('Total listings').nextElementSibling).toHaveTextContent('1');
 
   fireEvent.click(screen.getByRole('switch', { name: 'Listing visibility: visible' }));
   await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(

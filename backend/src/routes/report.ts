@@ -7,11 +7,13 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
+const getAdminEmails = (): string[] => (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 const isAdmin = async (userId: string): Promise<boolean> => {
-  const adminEmails = (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+  const adminEmails = getAdminEmails();
   if (!adminEmails.length) return false;
 
   const user = await User.findById(userId).select('email');
@@ -186,7 +188,7 @@ router.get('/admin/users', authenticateToken, async (req: AuthRequest, res: Resp
     }
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const userMatch: Record<string, unknown> = {};
+    const userMatch: Record<string, unknown> = { email: { $nin: getAdminEmails() } };
     if (search) {
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       userMatch.$or = [
@@ -204,9 +206,11 @@ router.get('/admin/users', authenticateToken, async (req: AuthRequest, res: Resp
       {
         $lookup: {
           from: 'listings',
-          localField: '_id',
-          foreignField: 'seller',
-          pipeline: [{ $count: 'count' }],
+          let: { userId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$seller', '$$userId'] } } },
+            { $count: 'count' },
+          ],
           as: 'listingStats',
         },
       },
@@ -282,6 +286,7 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
       res.status(403).json({ message: 'Admin access required.' });
       return;
     }
+    const adminEmails = getAdminEmails();
     const pageSize = 25;
     const [user, listings, listingCount] = await Promise.all([
       User.findById(userId)
@@ -295,6 +300,10 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
       Listing.countDocuments({ seller: userId }),
     ]);
     if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+    if (adminEmails.includes(user.email.toLowerCase())) {
       res.status(404).json({ message: 'User not found.' });
       return;
     }
@@ -351,10 +360,7 @@ router.patch('/admin/users/:userId/status', authenticateToken, async (req: AuthR
       res.status(404).json({ message: 'User not found.' });
       return;
     }
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-      .split(',')
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean);
+    const adminEmails = getAdminEmails();
     if (adminEmails.includes(target.email.toLowerCase())) {
       res.status(403).json({ message: 'Admin accounts cannot be suspended through user management.' });
       return;
