@@ -200,6 +200,7 @@ function App() {
   const [isPostingItem, setIsPostingItem] = useState(false);
   const [isUpdatingListingStatus, setIsUpdatingListingStatus] = useState(false);
   const [isModifyingItem, setIsModifyingItem] = useState(false);
+  const [toast, setToast] = useState(null);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
   const notificationButtonRef = useRef(null);
@@ -213,6 +214,16 @@ function App() {
   const currentUserId = user?._id || user?.id;
   unreadCountRef.current = unreadMessageCount;
   browserNotificationPermissionRef.current = browserNotificationPermission;
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (!toast || toast.type === 'error') return undefined;
+    const timeout = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   // Modal UI States
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -627,7 +638,7 @@ function App() {
     const file = e.target.files[0];
     const validationError = validateImageFiles(file ? [file] : [], 1);
     if (validationError) {
-      alert(validationError);
+      showToast(validationError, 'error');
       e.target.value = '';
       return;
     }
@@ -644,7 +655,7 @@ function App() {
     const file = e.target.files[0];
     const validationError = validateImageFiles(file ? [file] : [], 1);
     if (validationError) {
-      alert(validationError);
+      showToast(validationError, 'error');
       e.target.value = '';
       return;
     }
@@ -665,7 +676,7 @@ function App() {
       if (authMode === 'register') {
         const normalizedEmail = authForm.email.trim().toLowerCase();
         if (!/^[^\s@]+@marwadiuniversity\.ac\.in$/.test(normalizedEmail)) {
-          alert('Only MU students can register. Use your @marwadiuniversity.ac.in email address.');
+          showToast('Only MU students can register. Use your @marwadiuniversity.ac.in email address.', 'error');
           return;
         }
 
@@ -767,11 +778,11 @@ function App() {
         console.error('Failed to save updated profile to browser storage:', err);
       }
       setIsEditingProfile(false);
-      alert('Profile updated successfully!');
+      showToast('Profile updated successfully!');
       fetchItems();
       refreshMyProducts();
     } catch (err) {
-      alert(`Failed to update profile: ${err.response?.data?.message || err.message}`);
+      showToast(`Failed to update profile: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -797,17 +808,17 @@ function App() {
   const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (isPostingItem) return;
-    if (!token) return alert('Please log in first.');
+    if (!token) return showToast('Please log in first.', 'error');
 
     const imageValidationError = validateImageFiles(postForm.images);
     if (imageValidationError) {
-      alert(imageValidationError);
+      showToast(imageValidationError, 'error');
       return;
     }
 
     const validationError = validateListingForm(postForm);
     if (validationError) {
-      alert(validationError);
+      showToast(validationError, 'error');
       return;
     }
 
@@ -832,12 +843,12 @@ function App() {
           'Content-Type': 'multipart/form-data',
         },
       });
-      alert('Item posted successfully!');
+      showToast('Item posted successfully!');
       setShowPostModal(false);
       fetchItems();
       refreshMyProducts();
     } catch (err) {
-      alert(`Failed to post item: ${err.response?.data?.message || err.message}`);
+      showToast(`Failed to post item: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setIsPostingItem(false);
     }
@@ -855,7 +866,7 @@ function App() {
       fetchItems();
       refreshMyProducts();
     } catch (err) {
-      alert(`Failed to update status: ${err.response?.data?.message || err.message}`);
+      showToast(`Failed to update status: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setIsUpdatingListingStatus(false);
     }
@@ -882,7 +893,7 @@ function App() {
       await refreshMyProducts();
       fetchItems();
     } catch (err) {
-      alert(`Failed to delete product: ${err.response?.data?.message || err.message}`);
+      showToast(`Failed to delete product: ${err.response?.data?.message || err.message}`, 'error');
     }
   };
 
@@ -902,7 +913,7 @@ function App() {
       setChatConversationId(res.data._id);
       setShowChatModal(true);
     } catch (err) {
-      alert(`Could not start chat: ${err.response?.data?.message || err.message}`);
+      showToast(`Could not start chat: ${err.response?.data?.message || err.message}`, 'error');
     }
   };
 
@@ -988,13 +999,13 @@ function App() {
     e.preventDefault();
     const imageValidationError = validateImageFiles(editItemForm.images);
     if (imageValidationError) {
-      alert(imageValidationError);
+      showToast(imageValidationError, 'error');
       return;
     }
 
     const validationError = validateListingForm(editItemForm);
     if (validationError) {
-      alert(validationError);
+      showToast(validationError, 'error');
       return;
     }
 
@@ -1020,12 +1031,12 @@ function App() {
           'Content-Type': 'multipart/form-data',
         },
       });
-      alert('Item updated successfully!');
+      showToast('Item updated successfully!');
       setEditItemModal(null);
       fetchItems();
       refreshMyProducts();
     } catch (err) {
-      alert(`Failed to modify item: ${err.response?.data?.message || err.message}`);
+      showToast(`Failed to modify item: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setIsModifyingItem(false);
     }
@@ -1094,6 +1105,18 @@ function App() {
 
   return (
     <div className="app-container">
+      {toast && (
+        <div
+          className={`app-toast app-toast-${toast.type}`}
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+        >
+          <span>{toast.message}</span>
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss notification">
+            &times;
+          </button>
+        </div>
+      )}
       {authMessage && !showAuthModal && (
         <div className="auth-status-message" role="status" aria-live="polite">
           <span>{authMessage}</span>

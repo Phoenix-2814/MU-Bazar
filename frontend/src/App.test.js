@@ -807,7 +807,6 @@ test('blocks invalid listing submissions before they reach the API', async () =>
   localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
   localStorage.setItem('token', 'seller-token');
   axios.get.mockResolvedValue({ data: [] });
-  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
 
   render(<App />);
   fireEvent.click(screen.getByRole('button', { name: /\+ sell item/i }));
@@ -816,7 +815,7 @@ test('blocks invalid listing submissions before they reach the API', async () =>
   fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '0' } });
   fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
 
-  expect(alertSpy).toHaveBeenCalledWith('Title must be at least 3 characters long.');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Title must be at least 3 characters long.');
   expect(axios.post).not.toHaveBeenCalled();
 });
 
@@ -824,7 +823,6 @@ test('enforces listing title and description length limits', async () => {
   localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
   localStorage.setItem('token', 'seller-token');
   axios.get.mockResolvedValue({ data: [] });
-  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
 
   render(<App />);
   fireEvent.click(screen.getByRole('button', { name: /\+ sell item/i }));
@@ -838,7 +836,7 @@ test('enforces listing title and description length limits', async () => {
   fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '100' } });
   fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
 
-  expect(alertSpy).toHaveBeenCalledWith('Title must be 120 characters or fewer.');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Title must be 120 characters or fewer.');
   expect(axios.post).not.toHaveBeenCalled();
 });
 
@@ -847,7 +845,6 @@ test('reports image processing failures and re-enables the post action', async (
   localStorage.setItem('token', 'seller-token');
   axios.get.mockResolvedValue({ data: [] });
   compressImage.mockRejectedValue(new Error('Could not compress selected image.'));
-  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
   const image = new File(['image data'], 'book.png', { type: 'image/png' });
 
   render(<App />);
@@ -860,9 +857,9 @@ test('reports image processing failures and re-enables the post action', async (
   });
   fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
 
-  await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(
+  expect(await screen.findByRole('alert')).toHaveTextContent(
     'Failed to post item: Could not compress selected image.'
-  ));
+  );
   expect(axios.post).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Post Item' })).toBeEnabled();
 });

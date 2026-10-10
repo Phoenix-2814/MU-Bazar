@@ -43,6 +43,51 @@ body {
   min-height: 100vh;
 }
 
+.app-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 2100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(440px, calc(100vw - 36px));
+  padding: 14px 16px;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.app-toast-success {
+  border-color: #a7f3d0;
+  color: #065f46;
+  background: #ecfdf5;
+}
+
+.app-toast-error {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.app-toast button {
+  flex: 0 0 auto;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-toast button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
 /* --- Image & Avatar Security Shield --- */
 .secure-bg-avatar {
   background-size: cover;
