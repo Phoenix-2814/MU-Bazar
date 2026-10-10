@@ -337,11 +337,6 @@ body {
   flex: 0 0 auto;
 }
 
-.profile-menu-chevron {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
 .profile-dropdown {
   position: absolute;
   top: calc(100% + 10px);
@@ -355,23 +350,6 @@ body {
   border-radius: 14px;
   background: #fff;
   box-shadow: var(--shadow-lg);
-}
-
-.profile-dropdown-heading {
-  display: grid;
-  gap: 4px;
-  padding: 10px 10px 14px;
-  border-bottom: 1px solid var(--border-subtle);
-  overflow-wrap: anywhere;
-}
-
-.profile-dropdown-heading strong {
-  font-size: 0.98rem;
-}
-
-.profile-dropdown-heading span {
-  color: var(--text-muted);
-  font-size: 0.78rem;
 }
 
 .profile-dropdown > button {
@@ -2052,8 +2030,7 @@ body {
     flex: 0 0 36px;
   }
 
-  .navbar > .profile-menu-container .user-welcome,
-  .navbar > .profile-menu-container .profile-menu-chevron {
+  .navbar > .profile-menu-container .user-welcome {
     display: none;
   }
 

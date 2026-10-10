@@ -713,13 +713,39 @@ test('shows product links and profile details in a dropdown from the profile con
   expect(screen.getByRole('region', { name: 'Profile menu' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /my products/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /history/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'My Profile' })).toBeInTheDocument();
+  expect(screen.queryByText('student@marwadiuniversity.ac.in')).not.toBeInTheDocument();
+  expect(screen.queryByText('9876543210')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'My Profile' })).not.toBeInTheDocument();
-  expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
-  expect(screen.getByText('9876543210')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
+  fireEvent.click(screen.getByRole('button', { name: 'My Profile' }));
+  expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
+  expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
+  expect(screen.getByText('9876543210')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Profile menu for Profile Student' }));
   fireEvent.click(screen.getByRole('button', { name: /history/i }));
   expect(await screen.findByRole('heading', { name: 'Product History' })).toBeInTheDocument();
+});
+
+test('closes the profile dropdown with Escape and restores focus to the profile control', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'profile-user', name: 'Profile Student' }));
+  localStorage.setItem('token', 'profile-token');
+  axios.get.mockResolvedValue({ data: [] });
+
+  render(<App />);
+  const profileMenuButton = await screen.findByRole('button', {
+    name: 'Profile menu for Profile Student',
+  });
+  fireEvent.click(profileMenuButton);
+  expect(screen.getByRole('region', { name: 'Profile menu' })).toBeInTheDocument();
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+
+  expect(screen.queryByRole('region', { name: 'Profile menu' })).not.toBeInTheDocument();
+  expect(profileMenuButton).toHaveAttribute('aria-expanded', 'false');
+  expect(profileMenuButton).toHaveFocus();
 });
 
 test('closes registration and prominently confirms verification email was sent', async () => {

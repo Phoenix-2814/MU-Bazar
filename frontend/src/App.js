@@ -204,6 +204,7 @@ function App() {
   const googleButtonRef = useRef(null);
   const notificationButtonRef = useRef(null);
   const profileDropdownRef = useRef(null);
+  const profileMenuButtonRef = useRef(null);
   const profilePageRef = useRef(null);
   const seenListingIdsRef = useRef(null);
   const listingRequestIdRef = useRef(0);
@@ -397,7 +398,10 @@ function App() {
       if (!profileDropdownRef.current?.contains(event.target)) setShowProfileDropdown(false);
     };
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setShowProfileDropdown(false);
+      if (event.key === 'Escape') {
+        setShowProfileDropdown(false);
+        profileMenuButtonRef.current?.focus();
+      }
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
@@ -1231,6 +1235,7 @@ function App() {
             <button
               type="button"
               className="profile-badge"
+              ref={profileMenuButtonRef}
               aria-label={`Profile menu for ${user.name || 'user'}`}
               aria-expanded={showProfileDropdown}
               aria-controls="profile-dropdown"
@@ -1248,21 +1253,9 @@ function App() {
                 </div>
               )}
               <span className="user-welcome">{user.name}</span>
-              <span className="profile-menu-chevron" aria-hidden="true">⌄</span>
             </button>
             {showProfileDropdown && (
               <section id="profile-dropdown" className="profile-dropdown" aria-label="Profile menu">
-                <div className="profile-dropdown-heading">
-                  <strong>{user.name}</strong>
-                  <span>{user.email}</span>
-                  <span>{user.phone || 'Phone not added'}</span>
-                  <span>
-                    {user.residencyType === 'outsider'
-                      ? 'Outsider'
-                      : [user.hostelName, user.hostelBlock && `Block ${user.hostelBlock}`, user.roomNumber && `Room ${user.roomNumber}`]
-                        .filter(Boolean).join(' · ') || 'Hosteler'}
-                  </span>
-                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -1289,7 +1282,7 @@ function App() {
                     setActivePage('profile');
                   }}
                 >
-                  Edit Profile
+                  My Profile
                 </button>
                 <button type="button" className="profile-dropdown-logout" onClick={() => {
                   setShowProfileDropdown(false);
