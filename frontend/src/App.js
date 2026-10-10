@@ -173,6 +173,7 @@ function App() {
   const [itemsLoadError, setItemsLoadError] = useState('');
   const [myProductsLoading, setMyProductsLoading] = useState(false);
   const [activePage, setActivePage] = useState('marketplace');
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [isReportsAdmin, setIsReportsAdmin] = useState(false);
   const [reportingItem, setReportingItem] = useState(null);
   const [user, setUser] = useState(savedSession.user);
@@ -202,6 +203,7 @@ function App() {
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
   const notificationButtonRef = useRef(null);
+  const profileDropdownRef = useRef(null);
   const profilePageRef = useRef(null);
   const seenListingIdsRef = useRef(null);
   const listingRequestIdRef = useRef(0);
@@ -389,10 +391,21 @@ function App() {
   }, [fetchItems]);
 
   useEffect(() => {
-    if (activePage === 'profile') {
-      profilePageRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-    }
-  }, [activePage]);
+    if (!showProfileDropdown) return undefined;
+
+    const closeOnOutsideClick = (event) => {
+      if (!profileDropdownRef.current?.contains(event.target)) setShowProfileDropdown(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setShowProfileDropdown(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showProfileDropdown]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1124,18 +1137,6 @@ function App() {
         <div className="nav-actions">
           {user ? (
             <>
-              <button
-                className={`btn-sell ${activePage === 'my-products' ? 'nav-button-active' : ''}`}
-                onClick={() => setActivePage('my-products')}
-              >
-                MY PRODUCTS
-              </button>
-              <button
-                className={`btn-sell ${activePage === 'history' ? 'nav-button-active' : ''}`}
-                onClick={() => setActivePage('history')}
-              >
-                HISTORY
-              </button>
               <button className="btn-sell" onClick={handleOpenMessages}>
                 <span>MESSAGES</span>
                 {unreadMessageCount > 0 && (
@@ -1226,25 +1227,78 @@ function App() {
           </section>
         )}
         {user && (
-          <div
-            className="profile-badge"
-            onClick={() => {
-              setIsEditingProfile(false);
-              setActivePage('profile');
-            }}
-          >
-            {user.profilePic ? (
-              <div
-                className="profile-avatar-img secure-bg-avatar"
-                style={{ backgroundImage: `url(${user.profilePic})` }}
-                onContextMenu={preventContextMenu}
-              />
-            ) : (
-              <div className="profile-avatar">
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </div>
+          <div className="profile-menu-container" ref={profileDropdownRef}>
+            <button
+              type="button"
+              className="profile-badge"
+              aria-label={`Profile menu for ${user.name || 'user'}`}
+              aria-expanded={showProfileDropdown}
+              aria-controls="profile-dropdown"
+              onClick={() => setShowProfileDropdown((open) => !open)}
+            >
+              {user.profilePic ? (
+                <div
+                  className="profile-avatar-img secure-bg-avatar"
+                  style={{ backgroundImage: `url(${user.profilePic})` }}
+                  onContextMenu={preventContextMenu}
+                />
+              ) : (
+                <div className="profile-avatar">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
+              <span className="user-welcome">{user.name}</span>
+              <span className="profile-menu-chevron" aria-hidden="true">⌄</span>
+            </button>
+            {showProfileDropdown && (
+              <section id="profile-dropdown" className="profile-dropdown" aria-label="Profile menu">
+                <div className="profile-dropdown-heading">
+                  <strong>{user.name}</strong>
+                  <span>{user.email}</span>
+                  <span>{user.phone || 'Phone not added'}</span>
+                  <span>
+                    {user.residencyType === 'outsider'
+                      ? 'Outsider'
+                      : [user.hostelName, user.hostelBlock && `Block ${user.hostelBlock}`, user.roomNumber && `Room ${user.roomNumber}`]
+                        .filter(Boolean).join(' · ') || 'Hosteler'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileDropdown(false);
+                    setActivePage('my-products');
+                  }}
+                >
+                  My Products ({myActiveListings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProfileDropdown(false);
+                    setActivePage('history');
+                  }}
+                >
+                  History ({mySoldHistoryListings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProfile(false);
+                    setShowProfileDropdown(false);
+                    setActivePage('profile');
+                  }}
+                >
+                  Edit Profile
+                </button>
+                <button type="button" className="profile-dropdown-logout" onClick={() => {
+                  setShowProfileDropdown(false);
+                  handleLogout();
+                }}>
+                  Logout
+                </button>
+              </section>
             )}
-            <span className="user-welcome">{user.name}</span>
           </div>
         )}
       </header>
@@ -1602,18 +1656,6 @@ function App() {
                     </div>
                   </div>
                   <div className="profile-actions-row">
-                    <button
-                      className="btn-edit-profile"
-                      onClick={() => setActivePage('my-products')}
-                    >
-                      My Products ({myActiveListings.length})
-                    </button>
-                    <button
-                      className="btn-edit-profile"
-                      onClick={() => setActivePage('history')}
-                    >
-                      History ({mySoldHistoryListings.length})
-                    </button>
                     <button className="btn-edit-profile" onClick={() => setIsEditingProfile(true)}>
                       Edit Profile
                     </button>
@@ -1635,22 +1677,6 @@ function App() {
                     ? 'Manage your active listings.'
                     : 'Products you have marked as sold.'}
                 </p>
-              </div>
-              <div className="products-page-tabs">
-                <button
-                  type="button"
-                  className={activePage === 'my-products' ? 'selected' : ''}
-                  onClick={() => setActivePage('my-products')}
-                >
-                  My Products ({myActiveListings.length})
-                </button>
-                <button
-                  type="button"
-                  className={activePage === 'history' ? 'selected' : ''}
-                  onClick={() => setActivePage('history')}
-                >
-                  History ({mySoldHistoryListings.length})
-                </button>
               </div>
             </div>
             {myProductsLoading ? (

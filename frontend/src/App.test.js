@@ -685,7 +685,7 @@ test('shows the messages dot when the signed-in user has unread messages', async
   expect(await screen.findByLabelText('You have unread messages')).toBeInTheDocument();
 });
 
-test('opens profile details in the page instead of a popup', async () => {
+test('shows product links and profile details in a dropdown from the profile control', async () => {
   localStorage.setItem('user', JSON.stringify({
     _id: 'profile-user',
     name: 'Profile Student',
@@ -702,14 +702,24 @@ test('opens profile details in the page instead of a popup', async () => {
   });
 
   render(<App />);
-  const profileName = await screen.findByText('Profile Student');
-  expect(profileName.closest('.nav-actions')).not.toBeInTheDocument();
-  fireEvent.click(profileName);
+  const profileMenuButton = await screen.findByRole('button', {
+    name: 'Profile menu for Profile Student',
+  });
+  expect(screen.queryByRole('button', { name: /my products/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /history/i })).not.toBeInTheDocument();
+  fireEvent.click(profileMenuButton);
 
-  expect(await screen.findByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
+  expect(profileMenuButton).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByRole('region', { name: 'Profile menu' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /my products/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /history/i })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'My Profile' })).not.toBeInTheDocument();
   expect(screen.getByText('student@marwadiuniversity.ac.in')).toBeInTheDocument();
   expect(screen.getByText('9876543210')).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /history/i }));
+  expect(await screen.findByRole('heading', { name: 'Product History' })).toBeInTheDocument();
 });
 
 test('closes registration and prominently confirms verification email was sent', async () => {
@@ -855,7 +865,8 @@ test('marks an owned product sold with an explicit desired status', async () => 
   axios.patch.mockResolvedValue({ data: { isSold: true } });
 
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: 'MY PRODUCTS' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Profile menu for Seller' }));
+  fireEvent.click(screen.getByRole('button', { name: /My Products/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Mark as Sold' }));
 
   await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(
