@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import app from './app';
 import { Message, Conversation } from './models/Chat';
+import User from './models/User';
 import JWT_SECRET from './config/jwt';
 import { clientOrigins, validateDeploymentConfig } from './config/urls';
 
@@ -27,7 +28,7 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (typeof token !== 'string') {
     next(new Error('Authentication required.'));
@@ -41,9 +42,20 @@ io.use((socket, next) => {
       return;
     }
 
+    const user = await User.findById(decoded.id).select('isSuspended');
+    if (!user || user.isSuspended) {
+      next(new Error(user ? 'This account is suspended.' : 'Account not found.'));
+      return;
+    }
+
     socket.data.userId = decoded.id;
     next();
-  } catch {
+  } catch (err) {
+    if (!(err instanceof jwt.JsonWebTokenError)) {
+      console.error('Failed to authenticate chat connection:', err);
+      next(new Error('Could not authenticate chat connection.'));
+      return;
+    }
     next(new Error('Invalid or expired authentication token.'));
   }
 });

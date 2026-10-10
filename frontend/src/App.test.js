@@ -766,6 +766,32 @@ test('closes the profile dropdown with Escape and restores focus to the profile 
   expect(profileMenuButton).toHaveFocus();
 });
 
+test('shows the user management page only to authorized admins', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'admin-user', name: 'Admin User' }));
+  localStorage.setItem('token', 'admin-token');
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/reports/admin/access')) {
+      return Promise.resolve({ data: { isAdmin: true } });
+    }
+    if (url.endsWith('/api/reports/admin/users')) {
+      return Promise.resolve({
+        data: {
+          users: [],
+          pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
+          counts: { all: 0, new: 0, suspended: 0 },
+        },
+      });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'USERS' }));
+
+  expect(await screen.findByRole('heading', { name: 'User management' })).toBeInTheDocument();
+  expect(screen.getByText('No users match this filter.')).toBeInTheDocument();
+});
+
 test('closes registration and prominently confirms verification email was sent', async () => {
   axios.get.mockResolvedValue({ data: [] });
   axios.post.mockResolvedValue({

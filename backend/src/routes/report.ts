@@ -154,6 +154,256 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
   }
 });
 
+router.get('/admin/users', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const page = Number(req.query.page ?? 1);
+  const pageSize = 25;
+  const status = req.query.status ?? 'all';
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const validStatuses = ['all', 'new', 'high-posted', 'suspended'];
+
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!Number.isSafeInteger(page) || page < 1) {
+    res.status(400).json({ message: 'Page must be a positive integer.' });
+    return;
+  }
+  if (typeof status !== 'string' || !validStatuses.includes(status)) {
+    res.status(400).json({ message: 'Choose a valid user filter.' });
+    return;
+  }
+  if (search.length > 100) {
+    res.status(400).json({ message: 'Search must be 100 characters or fewer.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const userMatch: Record<string, unknown> = {};
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      userMatch.$or = [
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+      ];
+    }
+
+    const resultMatch: Record<string, unknown> = {};
+    if (status === 'new') resultMatch.createdAt = { $gte: thirtyDaysAgo };
+    if (status === 'suspended') resultMatch.isSuspended = true;
+    const selectedUserMatch = { ...userMatch, ...resultMatch };
+    const listPipeline: mongoose.PipelineStage[] = [
+      { $match: selectedUserMatch },
+      {
+        $lookup: {
+          from: 'listings',
+          localField: '_id',
+          foreignField: 'seller',
+          pipeline: [{ $count: 'count' }],
+          as: 'listingStats',
+        },
+      },
+      {
+        $addFields: {
+          listingCount: { $ifNull: [{ $arrayElemAt: ['$listingStats.count', 0] }, 0] },
+        },
+      },
+      { $sort: status === 'high-posted' ? { listingCount: -1, createdAt: -1 } : { createdAt: -1 } },
+      { $skip: (page - 1) * pageSize },
+      { $limit: pageSize },
+      {
+        $project: {
+          name: 1,
+          email: 1,
+          phone: 1,
+          residencyType: 1,
+          hostelName: 1,
+          hostelBlock: 1,
+          roomNumber: 1,
+          emailVerified: 1,
+          isSuspended: 1,
+          suspensionReason: 1,
+          suspendedAt: 1,
+          suspendedBy: 1,
+          createdAt: 1,
+          listingCount: 1,
+        },
+      },
+    ];
+    const [users, total, allCount, newCount, suspendedCount] = await Promise.all([
+      User.aggregate(listPipeline),
+      User.countDocuments(selectedUserMatch),
+      User.countDocuments(userMatch),
+      User.countDocuments({ ...userMatch, createdAt: { $gte: thirtyDaysAgo } }),
+      User.countDocuments({ ...userMatch, isSuspended: true }),
+    ]);
+    res.json({
+      users,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+      counts: { all: allCount, new: newCount, suspended: suspendedCount },
+    });
+  } catch (err) {
+    console.error('Failed to fetch admin user directory:', err);
+    res.status(500).json({ message: 'Could not fetch users.' });
+  }
+});
+
+router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const { userId } = req.params;
+  const page = Number(req.query.page ?? 1);
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!mongoose.isValidObjectId(userId)) {
+    res.status(400).json({ message: 'Invalid user ID.' });
+    return;
+  }
+  if (!Number.isSafeInteger(page) || page < 1) {
+    res.status(400).json({ message: 'Page must be a positive integer.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+    const pageSize = 25;
+    const [user, listings, listingCount] = await Promise.all([
+      User.findById(userId)
+        .select('name email phone residencyType hostelName hostelBlock roomNumber emailVerified isSuspended suspensionReason suspendedAt suspendedBy createdAt updatedAt')
+        .populate('suspendedBy', 'name email'),
+      Listing.find({ seller: userId })
+        .select('title description price category condition images isSold isHidden createdAt updatedAt')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize),
+      Listing.countDocuments({ seller: userId }),
+    ]);
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+    res.json({
+      user,
+      listings,
+      pagination: {
+        page,
+        pageSize,
+        total: listingCount,
+        totalPages: Math.max(1, Math.ceil(listingCount / pageSize)),
+      },
+    });
+  } catch (err) {
+    console.error('Failed to fetch admin user profile:', err);
+    res.status(500).json({ message: 'Could not fetch this user profile.' });
+  }
+});
+
+router.patch('/admin/users/:userId/status', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const { userId } = req.params;
+  const { isSuspended, reason } = req.body || {};
+
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!mongoose.isValidObjectId(userId)) {
+    res.status(400).json({ message: 'Invalid user ID.' });
+    return;
+  }
+  if (typeof isSuspended !== 'boolean') {
+    res.status(400).json({ message: 'isSuspended must be true or false.' });
+    return;
+  }
+  if (isSuspended && (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 1000)) {
+    res.status(400).json({ message: 'Provide a suspension reason of 1 to 1000 characters.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+    if (adminId === userId) {
+      res.status(400).json({ message: 'You cannot suspend your own admin account.' });
+      return;
+    }
+
+    const target = await User.findById(userId).select('email');
+    if (!target) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+    if (adminEmails.includes(target.email.toLowerCase())) {
+      res.status(403).json({ message: 'Admin accounts cannot be suspended through user management.' });
+      return;
+    }
+
+    const update = isSuspended
+      ? {
+        $set: {
+          isSuspended: true,
+          suspensionReason: reason.trim(),
+          suspendedAt: new Date(),
+          suspendedBy: adminId,
+        },
+      }
+      : {
+        $set: { isSuspended: false, suspensionReason: '' },
+        $unset: { suspendedAt: 1, suspendedBy: 1 },
+      };
+    const updatedUser = await User.findByIdAndUpdate(userId, update, { new: true, runValidators: true })
+      .select('name email isSuspended suspensionReason suspendedAt');
+    if (!updatedUser) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (isSuspended) {
+      await Listing.updateMany(
+        { seller: userId, isHidden: { $ne: true } },
+        { $set: { isHidden: true, isHiddenBySuspension: true } }
+      );
+      const io = req.app.get('io');
+      io?.in(`user:${userId}`).disconnectSockets(true);
+    } else {
+      await Listing.updateMany(
+        { seller: userId, isHiddenBySuspension: true },
+        { $set: { isHidden: false, isHiddenBySuspension: false } }
+      );
+    }
+
+    res.json({
+      message: isSuspended ? 'User suspended.' : 'User reactivated.',
+      user: updatedUser,
+    });
+  } catch (err) {
+    console.error('Failed to update admin user status:', err);
+    res.status(500).json({ message: 'Could not update user status.' });
+  }
+});
+
 router.patch(
   '/admin/listings/:listingId/visibility',
   authenticateToken,
@@ -180,9 +430,21 @@ router.patch(
         res.status(403).json({ message: 'Admin access required.' });
         return;
       }
+      const existingListing = await Listing.findById(listingId).select('seller');
+      if (!existingListing) {
+        res.status(404).json({ message: 'Listing not found.' });
+        return;
+      }
+      if (!isHidden) {
+        const seller = await User.findById(existingListing.seller).select('isSuspended');
+        if (seller?.isSuspended) {
+          res.status(409).json({ message: 'Reactivate the seller before restoring their listings.' });
+          return;
+        }
+      }
       const listing = await Listing.findByIdAndUpdate(
         listingId,
-        { $set: { isHidden } },
+        { $set: { isHidden, isHiddenBySuspension: false } },
         { new: true, runValidators: true }
       ).populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber');
 
@@ -197,6 +459,39 @@ router.patch(
     } catch (err) {
       console.error('Failed to change listing visibility:', err);
       res.status(500).json({ message: 'Could not update listing visibility.' });
+    }
+  }
+);
+
+router.delete(
+  '/admin/listings/:listingId',
+  authenticateToken,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    const adminId = req.user?.id;
+    const { listingId } = req.params;
+    if (!adminId) {
+      res.status(401).json({ message: 'Authentication required.' });
+      return;
+    }
+    if (!mongoose.isValidObjectId(listingId)) {
+      res.status(400).json({ message: 'Invalid listing ID.' });
+      return;
+    }
+
+    try {
+      if (!(await isAdmin(adminId))) {
+        res.status(403).json({ message: 'Admin access required.' });
+        return;
+      }
+      const listing = await Listing.findByIdAndDelete(listingId).select('_id title seller');
+      if (!listing) {
+        res.status(404).json({ message: 'Listing not found.' });
+        return;
+      }
+      res.json({ message: 'Listing deleted.', listingId: listing._id });
+    } catch (err) {
+      console.error('Failed to delete listing as admin:', err);
+      res.status(500).json({ message: 'Could not delete this listing.' });
     }
   }
 );

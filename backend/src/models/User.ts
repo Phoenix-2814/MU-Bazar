@@ -14,6 +14,10 @@ export interface IUser extends Document {
   hostelBlock?: string;
   roomNumber?: string;
   profilePic?: string;
+  isSuspended: boolean;
+  suspensionReason?: string;
+  suspendedAt?: Date;
+  suspendedBy?: mongoose.Types.ObjectId;
 }
 
 const UserSchema: Schema = new Schema(
@@ -80,6 +84,23 @@ const UserSchema: Schema = new Schema(
     profilePic: {
       type: String,
       default: '',
+    },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    suspensionReason: {
+      type: String,
+      default: '',
+      maxlength: 1000,
+    },
+    suspendedAt: {
+      type: Date,
+    },
+    suspendedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
     },
   },
   { timestamps: true }

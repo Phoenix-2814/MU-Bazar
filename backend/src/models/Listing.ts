@@ -9,6 +9,7 @@ export interface IListing extends Document {
   images: string[];
   isSold: boolean;
   isHidden: boolean;
+  isHiddenBySuspension: boolean;
   seller: mongoose.Types.ObjectId;
 }
 
@@ -22,6 +23,7 @@ const ListingSchema: Schema = new Schema(
     images: [{ type: String }],
     isSold: { type: Boolean, default: false },
     isHidden: { type: Boolean, default: false, required: true },
+    isHiddenBySuspension: { type: Boolean, default: false, required: true },
     seller: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }

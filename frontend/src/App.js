@@ -7,6 +7,7 @@ import compressImage from './utils/compressImage';
 import validateImageFiles from './utils/validateImageFiles';
 import ReportListingModal from './ReportListingModal';
 import AdminReports from './AdminReports';
+import AdminUsers from './AdminUsers';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
@@ -1191,12 +1192,20 @@ function App() {
                 )}
               </button>
               {isReportsAdmin && (
-                <button
-                  className={`btn-sell ${activePage === 'admin-reports' ? 'nav-button-active' : ''}`}
-                  onClick={() => setActivePage('admin-reports')}
-                >
-                  REPORTS
-                </button>
+                <>
+                  <button
+                    className={`btn-sell ${activePage === 'admin-reports' ? 'nav-button-active' : ''}`}
+                    onClick={() => setActivePage('admin-reports')}
+                  >
+                    REPORTS
+                  </button>
+                  <button
+                    className={`btn-sell ${activePage === 'admin-users' ? 'nav-button-active' : ''}`}
+                    onClick={() => setActivePage('admin-users')}
+                  >
+                    USERS
+                  </button>
+                </>
               )}
               <button className="btn-sell" onClick={() => setShowPostModal(true)}>
                 + SELL ITEM
@@ -1575,6 +1584,15 @@ function App() {
             <section className="products-page">
               <h2>Admin access required</h2>
               <p className="no-items">This page is only available to authorized report moderators.</p>
+            </section>
+          )
+        ) : activePage === 'admin-users' ? (
+          isReportsAdmin ? (
+            <AdminUsers token={token} />
+          ) : (
+            <section className="products-page">
+              <h2>Admin access required</h2>
+              <p className="no-items">This page is only available to authorized administrators.</p>
             </section>
           )
         ) : activePage === 'profile' && user ? (

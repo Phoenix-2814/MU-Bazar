@@ -102,6 +102,13 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ code: 'ACCOUNT_NOT_FOUND', message: 'No account found. Please sign up first.' });
       return;
     }
+    if (mode === 'signin' && user?.isSuspended) {
+      res.status(403).json({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'This account is suspended. Contact marketplace support for assistance.',
+      });
+      return;
+    }
     if (mode === 'signup' && user) {
       res.status(409).json({ code: 'ACCOUNT_EXISTS', message: 'An account already exists. Please sign in.' });
       return;
@@ -366,6 +373,14 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Verify your MU email before logging in.',
+      });
+      return;
+    }
+
+    if (user.isSuspended) {
+      res.status(403).json({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'This account is suspended. Contact marketplace support for assistance.',
       });
       return;
     }
