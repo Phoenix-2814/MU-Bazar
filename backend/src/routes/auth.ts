@@ -77,13 +77,20 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (mode === 'signup') {
-      if (!['hosteler', 'outsider'].includes(residencyType)) {
+      if (typeof residencyType !== 'string' || !['hosteler', 'outsider'].includes(residencyType)) {
         res.status(400).json({ message: 'Choose whether you are a hosteler or outsider.' });
         return;
       }
       if (
         residencyType === 'hosteler' &&
-        (!hostelName?.trim() || !hostelBlock?.trim() || !roomNumber?.trim())
+        (
+          typeof hostelName !== 'string' ||
+          !hostelName.trim() ||
+          typeof hostelBlock !== 'string' ||
+          !hostelBlock.trim() ||
+          typeof roomNumber !== 'string' ||
+          !roomNumber.trim()
+        )
       ) {
         res.status(400).json({ message: 'Hostel name, block, and room number are required for hostelers.' });
         return;
@@ -150,8 +157,22 @@ router.post(
         roomNumber,
       } = req.body;
 
-      if (!email || !password || !name) {
+      if (typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string') {
         res.status(400).json({ message: 'Name, email, and password are required.' });
+        return;
+      }
+      const cleanName = name.trim();
+      const cleanPassword = password;
+      if (cleanName.length < 2 || cleanName.length > 100) {
+        res.status(400).json({ message: 'Name must be between 2 and 100 characters.' });
+        return;
+      }
+      if (cleanPassword.length < 8 || cleanPassword.length > 128) {
+        res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
+        return;
+      }
+      if (phone !== undefined && (typeof phone !== 'string' || phone.trim().length > 30)) {
+        res.status(400).json({ message: 'Phone number must be 30 characters or fewer.' });
         return;
       }
       const normalizedEmail = email.trim().toLowerCase();
@@ -170,7 +191,14 @@ router.post(
       }
       if (
         residencyType === 'hosteler' &&
-        (!hostelName?.trim() || !hostelBlock?.trim() || !roomNumber?.trim())
+        (
+          typeof hostelName !== 'string' ||
+          !hostelName.trim() ||
+          typeof hostelBlock !== 'string' ||
+          !hostelBlock.trim() ||
+          typeof roomNumber !== 'string' ||
+          !roomNumber.trim()
+        )
       ) {
         res.status(400).json({ message: 'Hostel name, block, and room number are required for hostelers.' });
         return;
@@ -198,7 +226,7 @@ router.post(
       }
 
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+      const hashedPassword = await bcrypt.hash(cleanPassword, salt);
 
       let profilePicUrl = '';
       if (req.file) {
@@ -206,11 +234,11 @@ router.post(
       }
 
       const newUser = new User({
-        name,
+        name: cleanName,
         email: normalizedEmail,
         password: hashedPassword,
         emailVerified: false,
-        phone: phone || '',
+        phone: typeof phone === 'string' ? phone.trim() : '',
         residencyType,
         hostelName: residencyType === 'hosteler' ? hostelName.trim() : '',
         hostelBlock: residencyType === 'hosteler' ? hostelBlock.trim() : '',
@@ -309,9 +337,9 @@ router.post('/resend-verification', async (req: Request, res: Response): Promise
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       res.status(400).json({ message: 'Email and password are required.' });
       return;
     }

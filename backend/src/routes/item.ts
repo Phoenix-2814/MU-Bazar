@@ -3,6 +3,53 @@ import Listing from '../models/Listing';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { imageUpload, uploadImage } from '../config/imageStorage';
 
+const VALID_CATEGORIES = new Set(['BOOKS', 'ELECTRONICS', 'CLOTHING', 'HOSTEL_ESSENTIALS', 'OTHER']);
+const VALID_CONDITIONS = new Set(['NEW', 'USED_LIKE_NEW', 'USED_GOOD', 'USED_FAIR']);
+const MAX_TITLE_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 5000;
+
+const validateListingData = (payload: {
+  title?: string;
+  description?: string;
+  price?: unknown;
+  category?: string;
+  condition?: string;
+}) => {
+  const title = String(payload.title || '').trim();
+  const description = String(payload.description || '').trim();
+  const price = Number(payload.price);
+  const category = String(payload.category || '').trim();
+  const condition = String(payload.condition || '').trim();
+
+  if (title.length < 3) {
+    return 'Title must be at least 3 characters long.';
+  }
+  if (title.length > MAX_TITLE_LENGTH) {
+    return `Title must be ${MAX_TITLE_LENGTH} characters or fewer.`;
+  }
+
+  if (description.length < 10) {
+    return 'Description must be at least 10 characters long.';
+  }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer.`;
+  }
+
+  if (!Number.isFinite(price) || price <= 0 || price > 500000) {
+    return 'Price must be a positive number under ₹5,00,000.';
+  }
+
+  if (!VALID_CATEGORIES.has(category)) {
+    return 'Please choose a valid listing category.';
+  }
+
+  if (!VALID_CONDITIONS.has(condition)) {
+    return 'Please choose a valid condition.';
+  }
+
+  return null;
+};
+
 const router: Router = express.Router();
 
 // GET /api/items - Fetch all listings
@@ -49,9 +96,10 @@ router.post(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { title, description, price, category, condition } = req.body;
+      const validationError = validateListingData({ title, description, price, category, condition });
 
-      if (!title || !description || !price) {
-        res.status(400).json({ message: 'Title, description, and price are required.' });
+      if (validationError) {
+        res.status(400).json({ message: validationError });
         return;
       }
 
@@ -108,11 +156,58 @@ router.put(
       const { title, description, price, category, condition } = req.body;
       const updateFields: Record<string, string | number | string[]> = {};
 
-      if (title) updateFields.title = title;
-      if (description) updateFields.description = description;
-      if (price) updateFields.price = Number(price);
-      if (category) updateFields.category = category;
-      if (condition) updateFields.condition = condition;
+      if (title !== undefined) {
+        const titleValue = String(title).trim();
+        if (!titleValue || titleValue.length < 3) {
+          res.status(400).json({ message: 'Title must be at least 3 characters long.' });
+          return;
+        }
+        if (titleValue.length > MAX_TITLE_LENGTH) {
+          res.status(400).json({ message: `Title must be ${MAX_TITLE_LENGTH} characters or fewer.` });
+          return;
+        }
+        updateFields.title = titleValue;
+      }
+
+      if (description !== undefined) {
+        const descriptionValue = String(description).trim();
+        if (!descriptionValue || descriptionValue.length < 10) {
+          res.status(400).json({ message: 'Description must be at least 10 characters long.' });
+          return;
+        }
+        if (descriptionValue.length > MAX_DESCRIPTION_LENGTH) {
+          res.status(400).json({ message: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer.` });
+          return;
+        }
+        updateFields.description = descriptionValue;
+      }
+
+      if (price !== undefined) {
+        const numericPrice = Number(price);
+        if (!Number.isFinite(numericPrice) || numericPrice <= 0 || numericPrice > 500000) {
+          res.status(400).json({ message: 'Price must be a positive number under ₹5,00,000.' });
+          return;
+        }
+        updateFields.price = numericPrice;
+      }
+
+      if (category !== undefined) {
+        const categoryValue = String(category).trim();
+        if (!VALID_CATEGORIES.has(categoryValue)) {
+          res.status(400).json({ message: 'Please choose a valid listing category.' });
+          return;
+        }
+        updateFields.category = categoryValue;
+      }
+
+      if (condition !== undefined) {
+        const conditionValue = String(condition).trim();
+        if (!VALID_CONDITIONS.has(conditionValue)) {
+          res.status(400).json({ message: 'Please choose a valid condition.' });
+          return;
+        }
+        updateFields.condition = conditionValue;
+      }
 
       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
         updateFields.images = await Promise.all(
@@ -145,6 +240,12 @@ router.patch(
   authenticateToken,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      const requestedSoldStatus = req.body?.isSold;
+      if (requestedSoldStatus !== undefined && typeof requestedSoldStatus !== 'boolean') {
+        res.status(400).json({ message: 'isSold must be true or false.' });
+        return;
+      }
+
       const userId = req.user?.id || req.user?._id || req.user?.userId;
       const listing = await Listing.findById(req.params.id);
 
@@ -158,7 +259,7 @@ router.patch(
         return;
       }
 
-      listing.isSold = !listing.isSold;
+      listing.isSold = requestedSoldStatus === undefined ? !listing.isSold : requestedSoldStatus;
       await listing.save();
 
       res.json({ message: 'Item status updated', isSold: listing.isSold, item: listing });

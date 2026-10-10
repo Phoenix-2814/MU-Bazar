@@ -14,8 +14,8 @@ export interface IListing extends Document {
 
 const ListingSchema: Schema = new Schema(
   {
-    title: { type: String, required: true, trim: true },
-    description: { type: String, required: true },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    description: { type: String, required: true, maxlength: 5000 },
     price: { type: Number, required: true },
     category: { type: String, default: 'OTHER' },
     condition: { type: String, default: 'USED_GOOD' },

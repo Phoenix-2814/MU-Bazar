@@ -11,6 +11,12 @@ function getId(value) {
   return typeof value === 'string' ? value : value?._id || value?.id;
 }
 
+function sortMessagesByTime(messages) {
+  return [...messages].sort((first, second) => (
+    new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime()
+  ));
+}
+
 export default function ChatModal({ conversationId, currentUser, token, onUnreadCountChange, onClose }) {
   const [activeConversationId, setActiveConversationId] = useState(conversationId || null);
   const [conversations, setConversations] = useState([]);
@@ -18,6 +24,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const currentUserId = getId(currentUser);
@@ -92,7 +99,15 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        if (!cancelled) setMessages(res.data);
+        if (!cancelled) {
+          setMessages((currentMessages) => {
+            const historyIds = new Set(res.data.map((message) => message._id));
+            return sortMessagesByTime([
+              ...res.data,
+              ...currentMessages.filter((message) => !historyIds.has(message._id)),
+            ]);
+          });
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -107,17 +122,23 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     socketRef.current = socket;
 
     const joinConversation = () => {
+      if (!cancelled) {
+        setError((currentError) => (
+          currentError === 'Chat connection failed. Please refresh and try again.'
+            ? ''
+            : currentError
+        ));
+      }
       socket.emit('join_room', activeConversationId, (result) => {
         if (result?.error && !cancelled) setError(result.error);
       });
     };
     const receiveMessage = (message) => {
       if (!cancelled && getId(message.conversationId) === activeConversationId) {
-        setMessages((previous) => (
-          previous.some((existing) => existing._id === message._id)
-            ? previous
-            : [...previous, message]
-        ));
+        setMessages((previous) => {
+          if (previous.some((existing) => existing._id === message._id)) return previous;
+          return sortMessagesByTime([...previous, message]);
+        });
         if (getId(message.sender) !== currentUserId) markConversationRead();
       }
     };
@@ -159,7 +180,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
   const handleSendMessage = (event) => {
     event.preventDefault();
     const messageText = text.trim();
-    if (!messageText || !activeConversationId) return;
+    if (!messageText || !activeConversationId || sending) return;
     if (messageText.length > 2000) {
       setError('Messages cannot exceed 2000 characters.');
       return;
@@ -170,14 +191,21 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     }
 
     setError('');
-    socketRef.current.emit(
+    setSending(true);
+    socketRef.current.timeout(10000).emit(
       'send_message',
       { conversationId: activeConversationId, text: messageText },
-      (result) => {
-        if (result?.error) setError(result.error);
+      (timeoutError, result) => {
+        if (timeoutError) {
+          setError('Message could not be sent. Check your connection and try again.');
+        } else if (result?.error) {
+          setError(result.error);
+        } else {
+          setText((currentText) => (currentText === messageText ? '' : currentText));
+        }
+        setSending(false);
       }
     );
-    setText('');
   };
 
   const getConversationTitle = (conversation) => {
@@ -323,7 +351,9 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
                 maxLength={2000}
                 aria-label="Message"
               />
-              <button type="submit" disabled={!text.trim()}>Send</button>
+              <button type="submit" disabled={!text.trim() || sending}>
+                {sending ? 'Sending...' : 'Send'}
+              </button>
             </form>
           </>
         )}

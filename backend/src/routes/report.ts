@@ -88,25 +88,66 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
     return;
   }
 
+  const pageValue = Number(req.query.page ?? 1);
+  const pageSize = 50;
+  const statusFilter = req.query.status;
+  if (!Number.isSafeInteger(pageValue) || pageValue < 1) {
+    res.status(400).json({ message: 'Page must be a positive integer.' });
+    return;
+  }
+  if (
+    statusFilter !== undefined &&
+    (typeof statusFilter !== 'string' ||
+      (statusFilter !== 'all' && !REPORT_STATUSES.includes(statusFilter as typeof REPORT_STATUSES[number])))
+  ) {
+    res.status(400).json({ message: 'Choose a valid report status filter.' });
+    return;
+  }
+
   try {
     if (!(await isAdmin(userId))) {
       res.status(403).json({ message: 'Admin access required.' });
       return;
     }
-    const reports = await ListingReport.find()
-      .populate({
-        path: 'listing',
-        select: 'title price images seller isHidden',
-        populate: {
-          path: 'seller',
-          select: 'name email phone residencyType hostelName hostelBlock roomNumber',
-        },
-      })
-      .populate('reporter', 'name email')
-      .populate('reviewedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(100);
-    res.json(reports);
+    const query: { status?: typeof REPORT_STATUSES[number] } = {};
+    if (typeof statusFilter === 'string' && statusFilter !== 'all') {
+      query.status = statusFilter as typeof REPORT_STATUSES[number];
+    }
+    const [reports, total, openCount, resolvedCount, dismissedCount] = await Promise.all([
+      ListingReport.find(query)
+        .populate({
+          path: 'listing',
+          select: 'title price images seller isHidden',
+          populate: {
+            path: 'seller',
+            select: 'name email phone residencyType hostelName hostelBlock roomNumber',
+          },
+        })
+        .populate('reporter', 'name email')
+        .populate('reviewedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip((pageValue - 1) * pageSize)
+        .limit(pageSize),
+      ListingReport.countDocuments(query),
+      ListingReport.countDocuments({ status: 'open' }),
+      ListingReport.countDocuments({ status: 'resolved' }),
+      ListingReport.countDocuments({ status: 'dismissed' }),
+    ]);
+    res.json({
+      reports,
+      pagination: {
+        page: pageValue,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+      counts: {
+        all: openCount + resolvedCount + dismissedCount,
+        open: openCount,
+        resolved: resolvedCount,
+        dismissed: dismissedCount,
+      },
+    });
   } catch (err) {
     console.error('Failed to fetch listing reports:', err);
     res.status(500).json({ message: 'Could not fetch listing reports.' });

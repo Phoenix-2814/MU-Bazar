@@ -25,6 +25,10 @@ router.post('/conversation', authenticateToken, async (req: AuthRequest, res: Re
       res.status(410).json({ message: 'This listing is temporarily unavailable for new conversations.' });
       return;
     }
+    if (listing.isSold) {
+      res.status(410).json({ message: 'This listing has been sold and is no longer available for new conversations.' });
+      return;
+    }
 
     const sellerId = listing.seller.toString();
     if (sellerId === buyerId) {

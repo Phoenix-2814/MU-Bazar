@@ -4,11 +4,15 @@ import { io } from 'socket.io-client';
 import './App.css';
 import ChatModal from './ChatModal';
 import compressImage from './utils/compressImage';
+import validateImageFiles from './utils/validateImageFiles';
 import ReportListingModal from './ReportListingModal';
 import AdminReports from './AdminReports';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
+const LISTINGS_REQUEST_TIMEOUT_MS = 15000;
+const MAX_LISTING_TITLE_LENGTH = 120;
+const MAX_LISTING_DESCRIPTION_LENGTH = 5000;
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 const CATEGORY_OPTIONS = [
   { key: 'ALL', label: 'All Items' },
@@ -20,9 +24,149 @@ const CATEGORY_OPTIONS = [
 ];
 
 const normalizeSearchText = (value) => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+const persistSession = (user, token) => {
+  try {
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
+  } catch (err) {
+    console.error('Failed to save session to browser storage:', err);
+  }
+};
+
+const removeStoredItem = (key) => {
+  try {
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error(`Failed to remove ${key} from browser storage:`, err);
+  }
+};
+
+const getSavedSession = () => {
+  try {
+    const savedUser = localStorage.getItem('user');
+    const savedToken = localStorage.getItem('token') || '';
+    if (!savedUser) return { user: null, token: '' };
+
+    const parsedUser = JSON.parse(savedUser);
+    if (parsedUser === null) return { user: null, token: '' };
+    if (typeof parsedUser === 'object' && !Array.isArray(parsedUser)) {
+      return { user: parsedUser, token: savedToken };
+    }
+    throw new Error('Saved user data must be an object.');
+  } catch (err) {
+    console.error('Failed to load saved session:', err);
+    return { user: null, token: '' };
+  }
+};
+
+const ListingImageControls = ({ title, activeIndex, imageCount, onSelectIndex }) => {
+  if (imageCount <= 1) return null;
+  return (
+    <div className="listing-image-controls">
+      <button
+        type="button"
+        aria-label={`Previous photo of ${title}`}
+        onClick={() => onSelectIndex((activeIndex - 1 + imageCount) % imageCount)}
+      >
+        ‹
+      </button>
+      <span aria-live="polite">{activeIndex + 1} / {imageCount}</span>
+      <button
+        type="button"
+        aria-label={`Next photo of ${title}`}
+        onClick={() => onSelectIndex((activeIndex + 1) % imageCount)}
+      >
+        ›
+      </button>
+    </div>
+  );
+};
+
+const ListingImage = ({ images, title }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const imageSources = Array.isArray(images) ? images.filter(Boolean) : [];
+  const imageSourceKey = imageSources.join('\u0000');
+  const [failedImages, setFailedImages] = useState({});
+  const activeSrc = imageSources[activeIndex];
+  const selectIndex = (nextIndex) => setActiveIndex(nextIndex);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    setFailedImages({});
+  }, [imageSourceKey]);
+
+  if (!activeSrc || failedImages[activeIndex]) {
+    return (
+      <div className="listing-image-fallback">
+        <span role="img" aria-label={`${title}: image unavailable`}>
+          {activeSrc ? 'Image unavailable' : 'No images available'}
+        </span>
+        <ListingImageControls
+          title={title}
+          activeIndex={activeIndex}
+          imageCount={imageSources.length}
+          onSelectIndex={selectIndex}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <img
+        src={activeSrc}
+        alt={`${title}, photo ${activeIndex + 1} of ${imageSources.length}`}
+        onError={() => setFailedImages((failed) => ({ ...failed, [activeIndex]: true }))}
+      />
+      <ListingImageControls
+        title={title}
+        activeIndex={activeIndex}
+        imageCount={imageSources.length}
+        onSelectIndex={selectIndex}
+      />
+    </>
+  );
+};
+
+const validateListingForm = ({ title, description, price, category, condition }) => {
+  const cleanTitle = String(title || '').trim();
+  const cleanDescription = String(description || '').trim();
+  const numericPrice = Number(price);
+  const validCategories = new Set(['BOOKS', 'ELECTRONICS', 'CLOTHING', 'HOSTEL_ESSENTIALS', 'OTHER']);
+  const validConditions = new Set(['NEW', 'USED_LIKE_NEW', 'USED_GOOD', 'USED_FAIR']);
+
+  if (cleanTitle.length < 3) {
+    return 'Title must be at least 3 characters long.';
+  }
+  if (cleanTitle.length > MAX_LISTING_TITLE_LENGTH) {
+    return `Title must be ${MAX_LISTING_TITLE_LENGTH} characters or fewer.`;
+  }
+
+  if (cleanDescription.length < 10) {
+    return 'Description must be at least 10 characters long.';
+  }
+  if (cleanDescription.length > MAX_LISTING_DESCRIPTION_LENGTH) {
+    return `Description must be ${MAX_LISTING_DESCRIPTION_LENGTH} characters or fewer.`;
+  }
+
+  if (!Number.isFinite(numericPrice) || numericPrice <= 0 || numericPrice > 500000) {
+    return 'Price must be a positive number under ₹5,00,000.';
+  }
+
+  if (!validCategories.has(category)) {
+    return 'Please choose a valid listing category.';
+  }
+
+  if (!validConditions.has(condition)) {
+    return 'Please choose a valid item condition.';
+  }
+
+  return '';
+};
 const NOTIFICATIONS_STORAGE_KEY = 'mubazar-notifications';
 
 function App() {
+  const [savedSession] = useState(getSavedSession);
   const [items, setItems] = useState([]);
   const [myProducts, setMyProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,11 +175,8 @@ function App() {
   const [activePage, setActivePage] = useState('marketplace');
   const [isReportsAdmin, setIsReportsAdmin] = useState(false);
   const [reportingItem, setReportingItem] = useState(null);
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [user, setUser] = useState(savedSession.user);
+  const [token, setToken] = useState(savedSession.token);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [notifications, setNotifications] = useState(() => {
     try {
@@ -55,11 +196,15 @@ function App() {
   const [authMessage, setAuthMessage] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isPostingItem, setIsPostingItem] = useState(false);
+  const [isUpdatingListingStatus, setIsUpdatingListingStatus] = useState(false);
   const [isModifyingItem, setIsModifyingItem] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const googleButtonRef = useRef(null);
+  const notificationButtonRef = useRef(null);
   const profilePageRef = useRef(null);
   const seenListingIdsRef = useRef(null);
+  const listingRequestIdRef = useRef(0);
   const unreadCountRef = useRef(unreadMessageCount);
   const browserNotificationPermissionRef = useRef(browserNotificationPermission);
   const currentUserId = user?._id || user?.id;
@@ -79,6 +224,9 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [listingSort, setListingSort] = useState('newest');
+  const [minimumPrice, setMinimumPrice] = useState('');
+  const [maximumPrice, setMaximumPrice] = useState('');
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
   // Forms
   const [authForm, setAuthForm] = useState({
@@ -163,12 +311,15 @@ function App() {
   }, []);
 
   const fetchItems = useCallback(async ({ background = false, notifyNewListings = false } = {}) => {
+    const requestId = ++listingRequestIdRef.current;
     try {
       if (!background) {
         setLoading(true);
-        setItemsLoadError('');
       }
-      const res = await axios.get(`${API_BASE_URL}/api/items`);
+      const res = await axios.get(`${API_BASE_URL}/api/items`, {
+        timeout: LISTINGS_REQUEST_TIMEOUT_MS,
+      });
+      if (requestId !== listingRequestIdRef.current) return;
       if (Array.isArray(res.data)) {
         const incomingIds = new Set(res.data.map((item) => item._id));
         if (seenListingIdsRef.current === null) {
@@ -193,22 +344,20 @@ function App() {
           }
         }
         setItems(res.data);
+        setItemsLoadError('');
       } else {
-        if (!background) {
-          setItems([]);
-          setItemsLoadError('The listings service returned an invalid response.');
-        }
+        setItemsLoadError('The listings service returned an invalid response.');
       }
     } catch (err) {
+      if (requestId !== listingRequestIdRef.current) return;
       console.error('Failed to fetch items:', err);
-      if (!background) {
-        setItems([]);
-        setItemsLoadError(
-          `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
-        );
-      }
+      setItemsLoadError(
+        err.code === 'ECONNABORTED'
+          ? 'Loading listings took too long. Please check your connection and try again.'
+          : `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
+      );
     } finally {
-      if (!background) setLoading(false);
+      if (requestId === listingRequestIdRef.current) setLoading(false);
     }
   }, [currentUserId, publishNotification]);
 
@@ -217,7 +366,11 @@ function App() {
   }, [fetchItems]);
 
   useEffect(() => {
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+    try {
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+    } catch (err) {
+      console.error('Failed to save notifications:', err);
+    }
   }, [notifications]);
 
   useEffect(() => {
@@ -307,8 +460,7 @@ function App() {
           });
           setUser(res.data.user);
           setToken(res.data.token);
-          localStorage.setItem('user', JSON.stringify(res.data.user));
-          localStorage.setItem('token', res.data.token);
+          persistSession(res.data.user, res.data.token);
           setShowAuthModal(false);
           setNeedsEmailVerification(false);
           setAuthMessage('');
@@ -350,8 +502,7 @@ function App() {
       .then((res) => {
         setUser(res.data.user);
         setToken(res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        localStorage.setItem('token', res.data.token);
+        persistSession(res.data.user, res.data.token);
         setAuthMessage('Your email is verified and you are now logged in.');
       })
       .catch((err) => {
@@ -457,6 +608,12 @@ function App() {
 
   const handleRegisterPicChange = (e) => {
     const file = e.target.files[0];
+    const validationError = validateImageFiles(file ? [file] : [], 1);
+    if (validationError) {
+      alert(validationError);
+      e.target.value = '';
+      return;
+    }
     if (file) {
       setAuthForm({
         ...authForm,
@@ -468,6 +625,12 @@ function App() {
 
   const handleProfilePicChange = (e) => {
     const file = e.target.files[0];
+    const validationError = validateImageFiles(file ? [file] : [], 1);
+    if (validationError) {
+      alert(validationError);
+      e.target.value = '';
+      return;
+    }
     if (file) {
       setProfileForm({
         ...profileForm,
@@ -522,8 +685,7 @@ function App() {
 
       setUser(res.data.user);
       setToken(res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      localStorage.setItem('token', res.data.token);
+      persistSession(res.data.user, res.data.token);
       setShowAuthModal(false);
       setNeedsEmailVerification(false);
       setAuthMessage('');
@@ -582,7 +744,11 @@ function App() {
 
       const updatedUser = res.data.user || res.data;
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      try {
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      } catch (err) {
+        console.error('Failed to save updated profile to browser storage:', err);
+      }
       setIsEditingProfile(false);
       alert('Profile updated successfully!');
       fetchItems();
@@ -597,34 +763,52 @@ function App() {
   const handleLogout = () => {
     const publicNotifications = notifications.filter((notification) => notification.type !== 'message');
     setNotifications(publicNotifications);
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(publicNotifications));
+    try {
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(publicNotifications));
+    } catch (err) {
+      console.error('Failed to save notifications:', err);
+    }
     setUser(null);
     setToken('');
     setUnreadMessageCount(0);
     setActivePage('marketplace');
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    removeStoredItem('user');
+    removeStoredItem('token');
     setIsEditingProfile(false);
   };
 
   const handlePostSubmit = async (e) => {
     e.preventDefault();
+    if (isPostingItem) return;
     if (!token) return alert('Please log in first.');
 
-    const formData = new FormData();
-    formData.append('title', postForm.title);
-    formData.append('description', postForm.description);
-    formData.append('price', postForm.price);
-    formData.append('category', postForm.category);
-    formData.append('condition', postForm.condition);
-
-    if (postForm.images) {
-      for (let i = 0; i < postForm.images.length; i++) {
-        formData.append('images', await compressImage(postForm.images[i]));
-      }
+    const imageValidationError = validateImageFiles(postForm.images);
+    if (imageValidationError) {
+      alert(imageValidationError);
+      return;
     }
 
+    const validationError = validateListingForm(postForm);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsPostingItem(true);
     try {
+      const formData = new FormData();
+      formData.append('title', postForm.title.trim());
+      formData.append('description', postForm.description.trim());
+      formData.append('price', String(Number(postForm.price)));
+      formData.append('category', postForm.category);
+      formData.append('condition', postForm.condition);
+
+      if (postForm.images) {
+        for (let i = 0; i < postForm.images.length; i++) {
+          formData.append('images', await compressImage(postForm.images[i]));
+        }
+      }
+
       await axios.post(`${API_BASE_URL}/api/items`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -637,20 +821,26 @@ function App() {
       refreshMyProducts();
     } catch (err) {
       alert(`Failed to post item: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsPostingItem(false);
     }
   };
 
-  const handleToggleSold = async (itemId) => {
+  const handleToggleSold = async (itemId, isSold) => {
+    if (isUpdatingListingStatus) return;
+    setIsUpdatingListingStatus(true);
     try {
       await axios.patch(
         `${API_BASE_URL}/api/items/${itemId}/sold`,
-        {},
+        { isSold },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       fetchItems();
       refreshMyProducts();
     } catch (err) {
       alert(`Failed to update status: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsUpdatingListingStatus(false);
     }
   };
 
@@ -739,6 +929,20 @@ function App() {
     setNotifications((current) => current.map((entry) => ({ ...entry, read: true })));
   };
 
+  useEffect(() => {
+    if (!showNotifications) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false);
+        notificationButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showNotifications]);
+
   const unreadNotificationCount = notifications.filter((entry) => !entry.read).length;
 
   const handleReportListing = (item) => {
@@ -765,12 +969,24 @@ function App() {
 
   const handleModifySubmit = async (e) => {
     e.preventDefault();
+    const imageValidationError = validateImageFiles(editItemForm.images);
+    if (imageValidationError) {
+      alert(imageValidationError);
+      return;
+    }
+
+    const validationError = validateListingForm(editItemForm);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
     setIsModifyingItem(true);
     try {
       const formData = new FormData();
-      formData.append('title', editItemForm.title);
-      formData.append('description', editItemForm.description);
-      formData.append('price', editItemForm.price);
+      formData.append('title', editItemForm.title.trim());
+      formData.append('description', editItemForm.description.trim());
+      formData.append('price', String(Number(editItemForm.price)));
       formData.append('category', editItemForm.category);
       formData.append('condition', editItemForm.condition);
 
@@ -803,6 +1019,16 @@ function App() {
   };
 
   const searchTerms = normalizeSearchText(searchQuery).split(' ').filter(Boolean);
+  const minPriceValue = minimumPrice === '' ? null : Number(minimumPrice);
+  const maxPriceValue = maximumPrice === '' ? null : Number(maximumPrice);
+  const priceRangeError = (
+    (minPriceValue !== null && (!Number.isFinite(minPriceValue) || minPriceValue < 0 || minPriceValue > 500000)) ||
+    (maxPriceValue !== null && (!Number.isFinite(maxPriceValue) || maxPriceValue < 0 || maxPriceValue > 500000))
+  )
+    ? 'Price filters must be between ₹0 and ₹5,00,000.'
+    : minPriceValue !== null && maxPriceValue !== null && minPriceValue > maxPriceValue
+      ? 'Minimum price cannot be greater than maximum price.'
+      : '';
   const filteredItems = items.filter((item) => {
     const sellerId = item.seller?._id || item.seller;
     const isOwnProduct = currentUserId && sellerId === currentUserId;
@@ -815,6 +1041,10 @@ function App() {
     const matchesCategory =
       selectedCategory === 'ALL' ||
       normalizeSearchText(item.category) === normalizeSearchText(selectedCategory);
+    const price = Number(item.price);
+    const matchesPrice = !priceRangeError &&
+      (minPriceValue === null || price >= minPriceValue) &&
+      (maxPriceValue === null || price <= maxPriceValue);
     const seller = item.seller && typeof item.seller === 'object' ? item.seller : {};
     const searchableText = normalizeSearchText([
       item.title,
@@ -830,7 +1060,7 @@ function App() {
     ].filter(Boolean).join(' '));
     const matchesSearch = searchTerms.every((term) => searchableText.includes(term));
 
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesSearch && matchesPrice;
   });
   const sortedItems = [...filteredItems].sort((first, second) => {
     if (listingSort === 'price-low') {
@@ -938,8 +1168,10 @@ function App() {
           <button
             type="button"
             className="btn-sell notification-trigger"
+            ref={notificationButtonRef}
             aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`}
             aria-expanded={showNotifications}
+            aria-controls="notification-panel"
             onClick={() => setShowNotifications((showing) => !showing)}
           >
             Notifications
@@ -949,7 +1181,7 @@ function App() {
           </button>
         </div>
         {showNotifications && (
-          <section className="notification-panel" aria-label="Notifications">
+          <section id="notification-panel" className="notification-panel" aria-label="Notifications">
             <div className="notification-panel-header">
               <h2>Notifications</h2>
               {unreadNotificationCount > 0 && (
@@ -1044,64 +1276,137 @@ function App() {
               : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
         </h2>
 
-        <div className="listing-sort-control">
-          <label htmlFor="listing-sort">Sort by</label>
-          <select
-            id="listing-sort"
-            value={listingSort}
-            onChange={(event) => setListingSort(event.target.value)}
-          >
-            <option value="newest">Newest first</option>
-            <option value="price-low">Price: low to high</option>
-            <option value="price-high">Price: high to low</option>
-          </select>
+        <div className="listing-controls">
+          <fieldset className="listing-price-filter">
+            <legend>Price range (₹)</legend>
+            <label>
+              <span>Min</span>
+              <input
+                type="number"
+                aria-label="Minimum price"
+                min="0"
+                max="500000"
+                step="1"
+                inputMode="numeric"
+                placeholder="Any"
+                value={minimumPrice}
+                onChange={(event) => setMinimumPrice(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Max</span>
+              <input
+                type="number"
+                aria-label="Maximum price"
+                min="0"
+                max="500000"
+                step="1"
+                inputMode="numeric"
+                placeholder="Any"
+                value={maximumPrice}
+                onChange={(event) => setMaximumPrice(event.target.value)}
+              />
+            </label>
+          </fieldset>
+          <div className="listing-sort-control">
+            <label htmlFor="listing-sort">Sort by</label>
+            <select
+              id="listing-sort"
+              value={listingSort}
+              onChange={(event) => setListingSort(event.target.value)}
+            >
+              <option value="newest">Newest first</option>
+              <option value="price-low">Price: low to high</option>
+              <option value="price-high">Price: high to low</option>
+            </select>
+          </div>
+          {(searchQuery || selectedCategory !== 'ALL' || minimumPrice || maximumPrice) && (
+            <button
+              type="button"
+              className="clear-filters-button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('ALL');
+                setMinimumPrice('');
+                setMaximumPrice('');
+              }}
+              aria-label="Clear marketplace filters"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
-        {loading ? (
-          <p className="loading-text">Loading listings...</p>
-        ) : itemsLoadError ? (
+        {priceRangeError && <p className="price-filter-error" role="alert">{priceRangeError}</p>}
+
+        {loading && items.length === 0 ? (
+          <section className="listing-loading" role="status" aria-live="polite" aria-busy="true">
+            <p className="loading-text">Loading listings...</p>
+            <div className="items-grid listing-skeleton-grid" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div className="listing-skeleton-card" key={index}>
+                  <div className="listing-skeleton-image" />
+                  <div className="listing-skeleton-body">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : itemsLoadError && items.length === 0 ? (
           <div className="no-items" role="alert">
             <p>{itemsLoadError}</p>
             <button type="button" className="btn-resend-verification" onClick={fetchItems}>
               Retry
             </button>
           </div>
-        ) : filteredItems.length === 0 ? (
+        ) : (
+          <>
+          {loading && (
+            <p className="listing-refresh-status" role="status" aria-live="polite">
+              Refreshing listings…
+            </p>
+          )}
+          {itemsLoadError && (
+            <div className="listing-refresh-error" role="alert">
+              <span>{itemsLoadError}</span>
+              <button type="button" onClick={fetchItems}>Retry</button>
+            </div>
+          )}
+          {priceRangeError ? null : filteredItems.length === 0 ? (
           <div className="no-items">
-            <p>No listings match your search or selected category.</p>
-            {(searchQuery || selectedCategory !== 'ALL') && (
-              <button
-                type="button"
-                className="clear-filters-button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('ALL');
-                }}
-              >
-                Clear search and category filters
-              </button>
-            )}
+            <p>No listings match your search or filters.</p>
           </div>
         ) : (
           <div className="items-grid">
             {sortedItems.map((item) => (
               <div className="item-card" key={item._id}>
                 <div className="image-container">
-                  <img
-                    src={
-                      item.images && item.images.length > 0
-                        ? item.images[0]
-                        : 'https://via.placeholder.com/250x200?text=MU+Bazar'
-                    }
-                    alt={item.title}
-                  />
+                  <ListingImage images={item.images} title={item.title} />
                   <span className="price-tag">₹{item.price}</span>
                   {item.isSold && <span className="public-sold-badge">SOLD</span>}
                 </div>
 
                 <div className="card-body">
                   <h3>{item.title}</h3>
-                  <p className="description">{item.description}</p>
+                  <p className={`description ${expandedDescriptions[item._id] ? 'description-expanded' : ''}`}>
+                    {item.description}
+                  </p>
+                  {String(item.description || '').length > 120 && (
+                    <button
+                      type="button"
+                      className="description-toggle"
+                      aria-expanded={Boolean(expandedDescriptions[item._id])}
+                      onClick={() => setExpandedDescriptions((current) => ({
+                        ...current,
+                        [item._id]: !current[item._id],
+                      }))}
+                    >
+                      {expandedDescriptions[item._id] ? 'Show less' : 'Read full description'}
+                    </button>
+                  )}
 
                   <div className="seller-profile-row">
                     {item.seller?.profilePic ? (
@@ -1154,6 +1459,8 @@ function App() {
               </div>
             ))}
           </div>
+          )}
+          </>
         )}
           </>
         ) : activePage === 'admin-reports' ? (
@@ -1194,7 +1501,7 @@ function App() {
                     )}
                     <label className="btn-upload-pic">
                       Change Profile Picture
-                      <input type="file" accept="image/*" onChange={handleProfilePicChange} hidden />
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleProfilePicChange} hidden />
                     </label>
                   </div>
                   <input
@@ -1202,6 +1509,8 @@ function App() {
                     placeholder="Full Name"
                     value={profileForm.name}
                     onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    minLength="2"
+                    maxLength="100"
                     required
                   />
                   <input
@@ -1209,6 +1518,7 @@ function App() {
                     placeholder="Phone Number"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    maxLength="30"
                     required
                   />
                   <select
@@ -1368,8 +1678,12 @@ function App() {
                         <button className="btn-modify" onClick={() => openEditModal(item)}>
                           Modify
                         </button>
-                        <button className="btn-sold" onClick={() => handleToggleSold(item._id)}>
-                          Mark as Sold
+                        <button
+                          className="btn-sold"
+                          disabled={isUpdatingListingStatus}
+                          onClick={() => handleToggleSold(item._id, true)}
+                        >
+                          {isUpdatingListingStatus ? 'Updating...' : 'Mark as Sold'}
                         </button>
                         <button className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
                           Delete
@@ -1394,8 +1708,12 @@ function App() {
                       </span>
                     </div>
                     <div className="action-buttons">
-                      <button className="btn-relist" onClick={() => handleToggleSold(item._id)}>
-                        Mark Active
+                      <button
+                        className="btn-relist"
+                        disabled={isUpdatingListingStatus}
+                        onClick={() => handleToggleSold(item._id, false)}
+                      >
+                        {isUpdatingListingStatus ? 'Updating...' : 'Mark Active'}
                       </button>
                       <button className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
                         Delete
@@ -1421,12 +1739,14 @@ function App() {
               <input
                 type="text"
                 placeholder="Title"
+                maxLength={MAX_LISTING_TITLE_LENGTH}
                 value={editItemForm.title}
                 onChange={(e) => setEditItemForm({ ...editItemForm, title: e.target.value })}
                 required
               />
               <textarea
                 placeholder="Description"
+                maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
                 value={editItemForm.description}
                 onChange={(e) =>
                   setEditItemForm({ ...editItemForm, description: e.target.value })
@@ -1436,6 +1756,9 @@ function App() {
               <input
                 type="number"
                 placeholder="Price (₹)"
+                min="1"
+                max="500000"
+                step="1"
                 value={editItemForm.price}
                 onChange={(e) => setEditItemForm({ ...editItemForm, price: e.target.value })}
                 required
@@ -1462,7 +1785,7 @@ function App() {
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={(e) => setEditItemForm({ ...editItemForm, images: e.target.files })}
               />
               <button type="submit" className="btn-submit" disabled={isModifyingItem}>
@@ -1544,7 +1867,7 @@ function App() {
                     )}
                     <label className="btn-upload-pic">
                       Choose Profile Picture (Optional)
-                      <input type="file" accept="image/*" onChange={handleRegisterPicChange} hidden />
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleRegisterPicChange} hidden />
                     </label>
                   </div>
                   <input
@@ -1552,6 +1875,8 @@ function App() {
                     placeholder="Full Name"
                     value={authForm.name}
                     onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                    minLength="2"
+                    maxLength="100"
                     required
                   />
                   <input
@@ -1559,6 +1884,7 @@ function App() {
                     placeholder="Phone"
                     value={authForm.phone}
                     onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
+                    maxLength="30"
                     required
                   />
                   <select
@@ -1615,6 +1941,8 @@ function App() {
                 placeholder="Password"
                 value={authForm.password}
                 onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                minLength={authMode === 'register' ? 8 : undefined}
+                maxLength={authMode === 'register' ? 128 : undefined}
                 required
               />
               <button type="submit" className="btn-submit">
@@ -1661,12 +1989,14 @@ function App() {
               <input
                 type="text"
                 placeholder="Title"
+                maxLength={MAX_LISTING_TITLE_LENGTH}
                 value={postForm.title}
                 onChange={(e) => setPostForm({ ...postForm, title: e.target.value })}
                 required
               />
               <textarea
                 placeholder="Description"
+                maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
                 value={postForm.description}
                 onChange={(e) => setPostForm({ ...postForm, description: e.target.value })}
                 required
@@ -1674,6 +2004,9 @@ function App() {
               <input
                 type="number"
                 placeholder="Price (₹)"
+                min="1"
+                max="500000"
+                step="1"
                 value={postForm.price}
                 onChange={(e) => setPostForm({ ...postForm, price: e.target.value })}
                 required
@@ -1700,11 +2033,11 @@ function App() {
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={(e) => setPostForm({ ...postForm, images: e.target.files })}
               />
-              <button type="submit" className="btn-submit">
-                Post Item
+              <button type="submit" className="btn-submit" disabled={isPostingItem}>
+                {isPostingItem ? 'Preparing item...' : 'Post Item'}
               </button>
             </form>
           </div>

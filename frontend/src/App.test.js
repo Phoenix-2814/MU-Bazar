@@ -1,10 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import App from './App';
+import compressImage from './utils/compressImage';
 
 const mockSocketHandlers = {};
 
 jest.mock('axios');
+jest.mock('./utils/compressImage', () => jest.fn((file) => Promise.resolve(file)));
 jest.mock('socket.io-client', () => ({
   __esModule: true,
   io: () => ({
@@ -32,6 +34,79 @@ test('renders the HostelBazar marketplace', async () => {
   expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
 });
 
+test('loads the marketplace when saved user data is malformed', async () => {
+  localStorage.setItem('user', '{invalid json');
+  axios.get.mockResolvedValue({ data: [] });
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
+  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(errorSpy).toHaveBeenCalledWith('Failed to load saved session:', expect.any(SyntaxError));
+});
+
+test('loads the marketplace if browser storage is unavailable', async () => {
+  const originalGetItem = Storage.prototype.getItem;
+  const storageSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(key) {
+    if (key === 'token') throw new Error('Storage is unavailable');
+    return originalGetItem.call(this, key);
+  });
+  axios.get.mockResolvedValue({ data: [] });
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  render(<App />);
+  storageSpy.mockRestore();
+
+  expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
+  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(errorSpy).toHaveBeenCalledWith('Failed to load saved session:', expect.any(Error));
+});
+
+test('keeps a successful login when browser storage rejects session writes', async () => {
+  axios.get.mockResolvedValue({ data: [] });
+  axios.post.mockResolvedValue({
+    data: {
+      user: { _id: 'signed-in-user', name: 'Signed In Student' },
+      token: 'valid-token',
+    },
+  });
+  const originalSetItem = Storage.prototype.setItem;
+  const storageSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItem(key, value) {
+    if (key === 'user' || key === 'token') throw new Error('Storage quota exceeded');
+    return originalSetItem.call(this, key, value);
+  });
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
+  fireEvent.change(screen.getByPlaceholderText('Email'), {
+    target: { value: 'student@marwadiuniversity.ac.in' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('Password'), {
+    target: { value: 'password123' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+  expect(await screen.findByRole('button', { name: /\+ sell item/i })).toBeInTheDocument();
+  expect(screen.queryByText(/authentication failed/i)).not.toBeInTheDocument();
+  expect(errorSpy).toHaveBeenCalledWith(
+    'Failed to save session to browser storage:',
+    expect.any(Error)
+  );
+  storageSpy.mockRestore();
+});
+
+test('announces listing loading accessibly and shows responsive loading placeholders', () => {
+  axios.get.mockReturnValue(new Promise(() => {}));
+
+  render(<App />);
+
+  expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByText('Loading listings...')).toBeInTheDocument();
+  expect(document.querySelectorAll('.listing-skeleton-card')).toHaveLength(6);
+});
+
 test('shows public listings without requiring a login', async () => {
   axios.get.mockResolvedValue({
     data: [
@@ -52,8 +127,255 @@ test('shows public listings without requiring a login', async () => {
   render(<App />);
 
   expect(await screen.findByText('Public listing')).toBeInTheDocument();
-  expect(axios.get).toHaveBeenCalledWith(expect.stringMatching(/\/api\/items$/));
+  expect(axios.get).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/items$/),
+    { timeout: 15000 }
+  );
   expect(localStorage.getItem('token')).toBeNull();
+});
+
+test('renders every listing when the feed contains more than six items', async () => {
+  const listings = Array.from({ length: 8 }, (_, index) => ({
+    _id: `listing-${index + 1}`,
+    title: `Listing ${index + 1}`,
+    description: 'Available to all visitors',
+    price: 100 + index,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: [],
+    isSold: false,
+    seller: { name: 'Seller', residencyType: 'outsider' },
+  }));
+  axios.get.mockResolvedValue({ data: listings });
+
+  render(<App />);
+
+  expect(await screen.findByText('Listing 8')).toBeInTheDocument();
+  expect(document.querySelectorAll('.items-grid .item-card')).toHaveLength(8);
+});
+
+test('shows a clear timeout message and retry option when listings take too long', async () => {
+  axios.get.mockRejectedValueOnce({
+    code: 'ECONNABORTED',
+    message: 'timeout of 15000ms exceeded',
+  });
+
+  render(<App />);
+
+  expect(await screen.findByText(
+    'Loading listings took too long. Please check your connection and try again.'
+  )).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+});
+
+test('shows an accessible fallback if a listing image fails to load', async () => {
+  axios.get.mockResolvedValue({
+    data: [{
+      _id: 'broken-image-listing',
+      title: 'Listing with missing image',
+      description: 'Image URL is no longer available',
+      price: 100,
+      category: 'BOOKS',
+      condition: 'USED_GOOD',
+      images: ['https://images.example/missing-book.jpg'],
+      isSold: false,
+      seller: { name: 'Seller', residencyType: 'outsider' },
+    }],
+  });
+
+  render(<App />);
+  const listingImage = await screen.findByRole('img', { name: 'Listing with missing image, photo 1 of 1' });
+  fireEvent.error(listingImage);
+
+  expect(screen.getByRole('img', { name: 'Listing with missing image: image unavailable' }))
+    .toHaveTextContent('Image unavailable');
+});
+
+test('allows buyers to browse all listing photos with accessible controls', async () => {
+  axios.get.mockResolvedValue({
+    data: [{
+      _id: 'gallery-listing',
+      title: 'Listing photo gallery',
+      description: 'Several photos show the item clearly',
+      price: 100,
+      category: 'BOOKS',
+      condition: 'USED_GOOD',
+      images: [
+        'https://images.example/front.jpg',
+        'https://images.example/back.jpg',
+        'https://images.example/inside.jpg',
+      ],
+      isSold: false,
+      seller: { name: 'Seller', residencyType: 'outsider' },
+    }],
+  });
+
+  render(<App />);
+  const firstPhoto = await screen.findByRole('img', {
+    name: 'Listing photo gallery, photo 1 of 3',
+  });
+  expect(firstPhoto).toHaveAttribute('src', 'https://images.example/front.jpg');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Next photo of Listing photo gallery' }));
+  expect(screen.getByRole('img', { name: 'Listing photo gallery, photo 2 of 3' }))
+    .toHaveAttribute('src', 'https://images.example/back.jpg');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Previous photo of Listing photo gallery' }));
+  const firstPhotoAgain = screen.getByRole('img', { name: 'Listing photo gallery, photo 1 of 3' });
+  expect(firstPhotoAgain).toHaveAttribute('src', 'https://images.example/front.jpg');
+  fireEvent.error(firstPhotoAgain);
+
+  expect(screen.getByRole('img', { name: 'Listing photo gallery: image unavailable' }))
+    .toHaveTextContent('Image unavailable');
+  fireEvent.click(screen.getByRole('button', { name: 'Next photo of Listing photo gallery' }));
+  expect(screen.getByRole('img', { name: 'Listing photo gallery, photo 2 of 3' }))
+    .toHaveAttribute('src', 'https://images.example/back.jpg');
+});
+
+test('resets the photo carousel when a listing image set changes after refresh', async () => {
+  const listing = {
+    _id: 'refreshed-gallery-listing',
+    title: 'Refreshed photo gallery',
+    description: 'The image set can change after a listing is edited',
+    price: 100,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: ['https://images.example/front.jpg', 'https://images.example/back.jpg'],
+    isSold: false,
+    seller: { name: 'Seller', residencyType: 'outsider' },
+  };
+  axios.get
+    .mockResolvedValueOnce({ data: [listing] })
+    .mockResolvedValueOnce({
+      data: [{
+        ...listing,
+        images: ['https://images.example/updated.jpg'],
+      }],
+    });
+
+  render(<App />);
+  expect(await screen.findByRole('img', {
+    name: 'Refreshed photo gallery, photo 1 of 2',
+  })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Next photo of Refreshed photo gallery' }));
+  expect(screen.getByRole('img', {
+    name: 'Refreshed photo gallery, photo 2 of 2',
+  })).toBeInTheDocument();
+
+  fireEvent.focus(window);
+
+  expect(await screen.findByRole('img', {
+    name: 'Refreshed photo gallery, photo 1 of 1',
+  })).toHaveAttribute('src', 'https://images.example/updated.jpg');
+});
+
+test('expands and collapses long listing descriptions on request', async () => {
+  const fullDescription = 'This listing has a detailed description with condition, included accessories, and pickup details. '.repeat(2);
+  axios.get.mockResolvedValue({
+    data: [{
+      _id: 'long-description-listing',
+      title: 'Detailed listing',
+      description: fullDescription,
+      price: 100,
+      category: 'BOOKS',
+      condition: 'USED_GOOD',
+      images: [],
+      isSold: false,
+      seller: { name: 'Seller', residencyType: 'outsider' },
+    }],
+  });
+
+  render(<App />);
+  const toggle = await screen.findByRole('button', { name: 'Read full description' });
+  const description = toggle.parentElement.querySelector('.description');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(description).toHaveTextContent(fullDescription.trim());
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(description).toHaveClass('description-expanded');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+  expect(screen.getByRole('button', { name: 'Read full description' }))
+    .toHaveAttribute('aria-expanded', 'false');
+});
+
+test('keeps loaded listings visible when a background refresh fails and allows retry', async () => {
+  const listing = {
+    _id: 'cached-listing',
+    title: 'Cached listing',
+    description: 'Still available while refresh runs',
+    price: 100,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: [],
+    isSold: false,
+    seller: { name: 'Seller', residencyType: 'outsider' },
+  };
+  axios.get
+    .mockResolvedValueOnce({ data: [listing] })
+    .mockRejectedValueOnce(new Error('Connection lost'))
+    .mockResolvedValueOnce({ data: [listing] });
+
+  render(<App />);
+  expect(await screen.findByText('Cached listing')).toBeInTheDocument();
+
+  fireEvent.focus(window);
+  expect(await screen.findByRole('alert')).toHaveTextContent(/could not load listings/i);
+  expect(screen.getByText('Cached listing')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  expect(screen.getByText('Cached listing')).toBeInTheDocument();
+});
+
+test('ignores stale listing responses when refresh requests finish out of order', async () => {
+  const makeListing = (id, title) => ({
+    _id: id,
+    title,
+    description: 'This listing response should remain consistent',
+    price: 100,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: [],
+    isSold: false,
+    seller: { name: 'Seller', residencyType: 'outsider' },
+  });
+  const pendingRequests = [];
+  axios.get.mockImplementation(() => new Promise((resolve) => pendingRequests.push(resolve)));
+
+  render(<App />);
+  await waitFor(() => expect(pendingRequests).toHaveLength(1));
+  fireEvent.focus(window);
+  await waitFor(() => expect(pendingRequests).toHaveLength(2));
+
+  await act(async () => {
+    pendingRequests[1]({ data: [makeListing('latest', 'Latest listing')] });
+  });
+  expect(await screen.findByText('Latest listing')).toBeInTheDocument();
+
+  await act(async () => {
+    pendingRequests[0]({ data: [makeListing('stale', 'Stale listing')] });
+  });
+  expect(screen.getByText('Latest listing')).toBeInTheDocument();
+  expect(screen.queryByText('Stale listing')).not.toBeInTheDocument();
+});
+
+test('clears initial loading when a newer background refresh completes first', async () => {
+  const pendingRequests = [];
+  axios.get.mockImplementation(() => new Promise((resolve) => pendingRequests.push(resolve)));
+
+  render(<App />);
+  await waitFor(() => expect(pendingRequests).toHaveLength(1));
+  fireEvent.focus(window);
+  await waitFor(() => expect(pendingRequests).toHaveLength(2));
+
+  await act(async () => {
+    pendingRequests[1]({ data: [] });
+  });
+
+  expect(screen.queryByText('Loading listings...')).not.toBeInTheDocument();
+  expect(screen.getByText(/no listings match your search/i)).toBeInTheDocument();
 });
 
 test('search matches multiple terms across listing details and seller, ignoring case and extra spaces', async () => {
@@ -116,7 +438,7 @@ test('category filters expose their selected state and can be cleared when no li
 
   fireEvent.click(screen.getByRole('button', { name: 'Electronics' }));
   expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Clear search and category filters' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Clear marketplace filters' }));
 
   expect(await screen.findByText('Organic Chemistry Textbook')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'All Items' })).toHaveAttribute('aria-pressed', 'true');
@@ -176,6 +498,75 @@ test('sorts matching listings by newest and price in either direction', async ()
   expect(listingTitles()).toEqual(['Newest listing', 'Middle price', 'Lowest price']);
 });
 
+test('filters marketplace listings by minimum and maximum price and clears those filters', async () => {
+  axios.get.mockResolvedValue({
+    data: [
+      {
+        _id: 'low-item',
+        title: 'Low priced book',
+        description: 'Affordable book',
+        price: 100,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+      {
+        _id: 'mid-item',
+        title: 'Mid priced book',
+        description: 'Average book',
+        price: 300,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+      {
+        _id: 'high-item',
+        title: 'High priced book',
+        description: 'Premium book',
+        price: 700,
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        images: [],
+        isSold: false,
+        seller: { name: 'Seller', residencyType: 'outsider' },
+      },
+    ],
+  });
+
+  render(<App />);
+  await screen.findByText('Mid priced book');
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Minimum price' }), {
+    target: { value: '600' },
+  });
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Maximum price' }), {
+    target: { value: '200' },
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Minimum price cannot be greater than maximum price.'
+  );
+  expect(screen.queryByText('Mid priced book')).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Minimum price' }), {
+    target: { value: '200' },
+  });
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Maximum price' }), {
+    target: { value: '500' },
+  });
+
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByText('Mid priced book')).toBeInTheDocument();
+  expect(screen.queryByText('Low priced book')).not.toBeInTheDocument();
+  expect(screen.queryByText('High priced book')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear marketplace filters' }));
+  expect(await screen.findByText('Low priced book')).toBeInTheDocument();
+  expect(screen.getByText('High priced book')).toBeInTheDocument();
+});
+
 test('shows and saves a notification when an incoming chat message increases unread count', async () => {
   localStorage.setItem('user', JSON.stringify({ _id: 'buyer-id', name: 'Buyer' }));
   localStorage.setItem('token', 'buyer-token');
@@ -213,6 +604,21 @@ test('shows and saves a notification when an incoming chat message increases unr
 
   await waitFor(() => expect(localStorage.getItem('mubazar-notifications')).toContain('conversation-id'));
   expect(screen.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('closes the notifications panel with Escape and restores focus to its trigger', async () => {
+  axios.get.mockResolvedValue({ data: [] });
+  render(<App />);
+
+  const notificationButton = screen.getByRole('button', { name: 'Notifications' });
+  fireEvent.click(notificationButton);
+  expect(await screen.findByRole('region', { name: 'Notifications' })).toBeInTheDocument();
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+
+  expect(screen.queryByRole('region', { name: 'Notifications' })).not.toBeInTheDocument();
+  expect(notificationButton).toHaveAttribute('aria-expanded', 'false');
+  expect(notificationButton).toHaveFocus();
 });
 
 test('detects new listings on return to the page and offers browser notification permission', async () => {
@@ -327,7 +733,7 @@ test('closes registration and prominently confirms verification email was sent',
   fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'password123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Register' }));
 
-  const statusMessage = await screen.findByRole('status');
+  const statusMessage = await screen.findByText(/check your mu email/i);
   expect(statusMessage).toHaveTextContent(/check your mu email/i);
   await waitFor(() => expect(screen.queryByRole('heading', { name: 'Register' })).not.toBeInTheDocument());
 });
@@ -356,7 +762,109 @@ test('closes registration and shows the resend cooldown outside the modal', asyn
   fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'password123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Register' }));
 
-  const statusMessage = await screen.findByRole('status');
+  const statusMessage = await screen.findByText(/wait one minute/i);
   expect(statusMessage).toHaveTextContent(/wait one minute/i);
   await waitFor(() => expect(screen.queryByPlaceholderText('Full Name')).not.toBeInTheDocument());
+});
+
+test('blocks invalid listing submissions before they reach the API', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
+  localStorage.setItem('token', 'seller-token');
+  axios.get.mockResolvedValue({ data: [] });
+  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /\+ sell item/i }));
+  fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'A' } });
+  fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: 'Bad' } });
+  fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '0' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+
+  expect(alertSpy).toHaveBeenCalledWith('Title must be at least 3 characters long.');
+  expect(axios.post).not.toHaveBeenCalled();
+});
+
+test('enforces listing title and description length limits', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
+  localStorage.setItem('token', 'seller-token');
+  axios.get.mockResolvedValue({ data: [] });
+  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /\+ sell item/i }));
+  const titleInput = screen.getByPlaceholderText('Title');
+  const descriptionInput = screen.getByPlaceholderText('Description');
+  expect(titleInput).toHaveAttribute('maxLength', '120');
+  expect(descriptionInput).toHaveAttribute('maxLength', '5000');
+
+  fireEvent.change(titleInput, { target: { value: 'T'.repeat(121) } });
+  fireEvent.change(descriptionInput, { target: { value: 'A valid description for an item.' } });
+  fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '100' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+
+  expect(alertSpy).toHaveBeenCalledWith('Title must be 120 characters or fewer.');
+  expect(axios.post).not.toHaveBeenCalled();
+});
+
+test('reports image processing failures and re-enables the post action', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
+  localStorage.setItem('token', 'seller-token');
+  axios.get.mockResolvedValue({ data: [] });
+  compressImage.mockRejectedValue(new Error('Could not compress selected image.'));
+  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+  const image = new File(['image data'], 'book.png', { type: 'image/png' });
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /\+ sell item/i }));
+  fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'A good book' } });
+  fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: 'A useful book for study.' } });
+  fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '100' } });
+  fireEvent.change(document.querySelector('input[type="file"][multiple]'), {
+    target: { files: [image] },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+
+  await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(
+    'Failed to post item: Could not compress selected image.'
+  ));
+  expect(axios.post).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Post Item' })).toBeEnabled();
+});
+
+test('marks an owned product sold with an explicit desired status', async () => {
+  localStorage.setItem('user', JSON.stringify({ _id: 'seller-1', name: 'Seller' }));
+  localStorage.setItem('token', 'seller-token');
+  const ownListing = {
+    _id: 'owned-listing',
+    title: 'Owned textbook',
+    description: 'Still available to campus buyers',
+    price: 200,
+    category: 'BOOKS',
+    condition: 'USED_GOOD',
+    images: [],
+    isSold: false,
+    seller: { _id: 'seller-1', name: 'Seller', residencyType: 'outsider' },
+  };
+  axios.get.mockImplementation((url) => (
+    url.endsWith('/api/items/mine')
+      ? Promise.resolve({ data: [ownListing] })
+      : url.endsWith('/api/items')
+        ? Promise.resolve({ data: [] })
+        : Promise.resolve({ data: { unreadCount: 0 } })
+  ));
+  axios.patch.mockResolvedValue({ data: { isSold: true } });
+
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: 'MY PRODUCTS' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Mark as Sold' }));
+
+  await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/items\/owned-listing\/sold$/),
+    { isSold: true },
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        Authorization: expect.stringMatching(/^Bearer /),
+      }),
+    })
+  ));
 });

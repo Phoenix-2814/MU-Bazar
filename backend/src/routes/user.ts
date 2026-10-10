@@ -20,20 +20,39 @@ router.put(
   imageUpload.single('profilePic'),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { name, phone, residencyType, hostelName, hostelBlock, roomNumber } = req.body;
+      const { name, phone, residencyType, hostelName, hostelBlock, roomNumber } = req.body || {};
 
-      const updateFields: Record<string, any> = {};
-      if (typeof name === 'string' && name.trim()) updateFields.name = name.trim();
-      if (typeof phone === 'string') updateFields.phone = phone.trim();
+      const updateFields: Record<string, string> = {};
+      if (name !== undefined) {
+        if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
+          res.status(400).json({ message: 'Name must be between 2 and 100 characters.' });
+          return;
+        }
+        updateFields.name = name.trim();
+      }
+      if (phone !== undefined) {
+        if (typeof phone !== 'string' || phone.trim().length > 30) {
+          res.status(400).json({ message: 'Phone number must be 30 characters or fewer.' });
+          return;
+        }
+        updateFields.phone = phone.trim();
+      }
       if (residencyType !== undefined) {
-        if (!['hosteler', 'outsider'].includes(residencyType)) {
+        if (typeof residencyType !== 'string' || !['hosteler', 'outsider'].includes(residencyType)) {
           res.status(400).json({ message: 'Choose whether you are a hosteler or outsider.' });
           return;
         }
 
         if (
           residencyType === 'hosteler' &&
-          (!hostelName?.trim() || !hostelBlock?.trim() || !roomNumber?.trim())
+          (
+            typeof hostelName !== 'string' ||
+            !hostelName.trim() ||
+            typeof hostelBlock !== 'string' ||
+            !hostelBlock.trim() ||
+            typeof roomNumber !== 'string' ||
+            !roomNumber.trim()
+          )
         ) {
           res.status(400).json({ message: 'Hostel name, block, and room number are required for hostelers.' });
           return;
@@ -43,8 +62,28 @@ router.put(
         updateFields.hostelName = residencyType === 'hosteler' ? hostelName.trim() : '';
         updateFields.hostelBlock = residencyType === 'hosteler' ? hostelBlock.trim() : '';
         updateFields.roomNumber = residencyType === 'hosteler' ? roomNumber.trim() : '';
-      } else if (typeof hostelBlock === 'string') {
-        updateFields.hostelBlock = hostelBlock.trim();
+      } else {
+        if (hostelName !== undefined) {
+          if (typeof hostelName !== 'string') {
+            res.status(400).json({ message: 'Hostel name must be text.' });
+            return;
+          }
+          updateFields.hostelName = hostelName.trim();
+        }
+        if (hostelBlock !== undefined) {
+          if (typeof hostelBlock !== 'string') {
+            res.status(400).json({ message: 'Hostel block must be text.' });
+            return;
+          }
+          updateFields.hostelBlock = hostelBlock.trim();
+        }
+        if (roomNumber !== undefined) {
+          if (typeof roomNumber !== 'string') {
+            res.status(400).json({ message: 'Room number must be text.' });
+            return;
+          }
+          updateFields.roomNumber = roomNumber.trim();
+        }
       }
 
       if (req.file) {

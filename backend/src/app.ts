@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import multer from 'multer';
 import { clientOrigins } from './config/urls';
 
 import authRoutes from './routes/auth';
@@ -44,6 +45,23 @@ app.use('/api/reports', reportRoutes);
 app.use((req: Request, res: Response) => {
   console.log(`[404 NOT FOUND]: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ message: `Route ${req.originalUrl} not found on backend server` });
+});
+
+app.use((err: unknown, req: Request, res: Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Each image must be 5 MB or smaller.'
+      : err.code === 'LIMIT_UNEXPECTED_FILE'
+        ? 'Too many images were selected.'
+        : 'The uploaded image could not be processed.';
+    res.status(400).json({ message });
+    return;
+  }
+  if (err instanceof Error && err.message === 'Use JPEG, PNG, WebP, or GIF images.') {
+    res.status(400).json({ message: err.message });
+    return;
+  }
+  next(err);
 });
 
 export default app;
