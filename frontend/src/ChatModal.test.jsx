@@ -333,3 +333,34 @@ test('clears a transient connection error after the socket reconnects', async ()
   act(() => mockSocketHandlers.connect());
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
+
+test('labels conversations whose listing was deleted', async () => {
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/chat/conversations')) {
+      return Promise.resolve({
+        data: [{
+          _id: 'conversation-removed',
+          members: [
+            { _id: 'buyer-1', name: 'Buyer' },
+            { _id: 'seller-1', name: 'Seller' },
+          ],
+          itemId: null,
+          lastMessage: 'Still available?',
+        }],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+
+  render(
+    <ChatModal
+      currentUser={{ _id: 'seller-1' }}
+      token="test-token"
+      onUnreadCountChange={jest.fn()}
+      onClose={jest.fn()}
+    />
+  );
+
+  expect(await screen.findByText('Listing removed')).toBeInTheDocument();
+});

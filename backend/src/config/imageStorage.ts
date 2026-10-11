@@ -40,3 +40,38 @@ export const uploadImage = async (file: Express.Multer.File, folder: string): Pr
 
   return uploaded.url;
 };
+
+const findImageKitFileId = async (url: string): Promise<string | null> => {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const fileName = decodeURIComponent(parsed.pathname.split('/').pop() || '');
+  if (!fileName || fileName.includes('"')) {
+    return null;
+  }
+
+  const urlWithoutQuery = `${parsed.origin}${parsed.pathname}`;
+  const files = await imagekit.assets.list({ searchQuery: `name = "${fileName}"`, limit: 10 });
+  const match = files.find((file) => 'url' in file && file.url === urlWithoutQuery);
+  return match && 'fileId' in match && match.fileId ? match.fileId : null;
+};
+
+export const deleteImages = async (urls: string[]): Promise<void> => {
+  if (!process.env.IMAGEKIT_PRIVATE_KEY || urls.length === 0) {
+    return;
+  }
+
+  try {
+    const fileIds = (await Promise.all(urls.map(findImageKitFileId))).filter(
+      (fileId): fileId is string => Boolean(fileId)
+    );
+    if (fileIds.length > 0) {
+      await imagekit.files.bulk.delete({ fileIds });
+    }
+  } catch (err) {
+    console.error('Failed to delete images from ImageKit:', err);
+  }
+};
