@@ -1,7 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import User from '../models/User';
 import authMiddleware from '../middleware/auth';
-import { imageUpload, uploadImage } from '../config/imageStorage';
+import { deleteImages, imageUpload, uploadImage } from '../config/imageStorage';
 
 const router: Router = express.Router();
 
@@ -86,11 +86,13 @@ router.put(
         }
       }
 
+      const userId = req.user?.id || req.user?._id;
+      let previousProfilePic: string | undefined;
+
       if (req.file) {
+        previousProfilePic = (await User.findById(userId).select('profilePic'))?.profilePic;
         updateFields.profilePic = await uploadImage(req.file, '/mubazar/profiles');
       }
-
-      const userId = req.user?.id || req.user?._id;
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,
@@ -104,6 +106,10 @@ router.put(
       }
 
       res.json({ message: 'Profile updated successfully', user: updatedUser });
+
+      if (previousProfilePic && previousProfilePic !== updatedUser.profilePic) {
+        void deleteImages([previousProfilePic]);
+      }
     } catch (err) {
       console.error('Error updating profile:', err);
       res.status(500).json({ message: 'Server error while updating profile' });

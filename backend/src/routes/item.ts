@@ -1,7 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import Listing from '../models/Listing';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { imageUpload, uploadImage } from '../config/imageStorage';
+import { deleteImages, imageUpload, uploadImage } from '../config/imageStorage';
 
 const VALID_CATEGORIES = new Set(['BOOKS', 'ELECTRONICS', 'CLOTHING', 'HOSTEL_ESSENTIALS', 'OTHER']);
 const VALID_CONDITIONS = new Set(['NEW', 'USED_LIKE_NEW', 'USED_GOOD', 'USED_FAIR']);
@@ -227,6 +227,10 @@ router.put(
       await updatedListing.populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber profilePic');
 
       res.json({ message: 'Listing updated successfully', item: updatedListing });
+
+      if (updateFields.images) {
+        void deleteImages(listing.images.filter((url) => !updatedListing.images.includes(url)));
+      }
     } catch (err: any) {
       console.error('Error modifying item:', err);
       res.status(500).json({ message: err.message || 'Failed to update item' });
@@ -287,6 +291,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
 
     await listing.deleteOne();
     res.json({ message: 'Product deleted successfully.' });
+    void deleteImages(listing.images);
   } catch (err) {
     console.error('Error deleting product:', err);
     res.status(500).json({ message: 'Failed to delete product.' });

@@ -247,7 +247,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
                   )}
                   <div className="chat-product-details">
                     <span className="chat-product-title">
-                      {activeConversation.itemId?.title || 'Listing'}
+                      {activeConversation.itemId ? activeConversation.itemId.title || 'Listing' : 'Listing removed'}
                     </span>
                     {activeConversation.itemId?.price != null && (
                       <strong>₹{activeConversation.itemId.price}</strong>
@@ -279,7 +279,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
               >
                 <span className="chat-conversation-copy">
                   <strong>{getConversationTitle(conversation)}</strong>
-                  <span>{conversation.itemId?.title || 'Listing'}</span>
+                  <span>{conversation.itemId ? conversation.itemId.title || 'Listing' : 'Listing removed'}</span>
                   <span className="chat-last-message">{conversation.lastMessage || 'Start the conversation'}</span>
                 </span>
                 <span className="chat-conversation-price">

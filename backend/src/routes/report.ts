@@ -4,6 +4,7 @@ import ListingReport, { REPORT_REASONS, REPORT_STATUSES } from '../models/Listin
 import Listing from '../models/Listing';
 import User from '../models/User';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { deleteImages } from '../config/imageStorage';
 
 const router = express.Router();
 
@@ -489,12 +490,17 @@ router.delete(
         res.status(403).json({ message: 'Admin access required.' });
         return;
       }
-      const listing = await Listing.findByIdAndDelete(listingId).select('_id title seller');
+      const listing = await Listing.findByIdAndDelete(listingId).select('_id title seller images');
       if (!listing) {
         res.status(404).json({ message: 'Listing not found.' });
         return;
       }
+      await ListingReport.updateMany(
+        { listing: listing._id, status: 'open' },
+        { $set: { status: 'resolved', adminNote: 'Listing deleted by an admin.', reviewedBy: adminId } }
+      );
       res.json({ message: 'Listing deleted.', listingId: listing._id });
+      void deleteImages(listing.images);
     } catch (err) {
       console.error('Failed to delete listing as admin:', err);
       res.status(500).json({ message: 'Could not delete this listing.' });
