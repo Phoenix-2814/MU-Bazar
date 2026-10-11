@@ -97,7 +97,7 @@ router.put(
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { $set: updateFields },
-        { new: true }
+        { returnDocument: 'after' }
       ).select('-password');
 
       if (!updatedUser) {

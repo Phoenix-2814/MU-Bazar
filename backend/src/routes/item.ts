@@ -348,7 +348,7 @@ router.put(
       const updatedListing = await Listing.findOneAndUpdate(
         { _id: req.params.id, seller: userId },
         { $set: updateFields },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
       if (!updatedListing) {
         res.status(404).json({ message: 'Listing was removed before the update completed.' });

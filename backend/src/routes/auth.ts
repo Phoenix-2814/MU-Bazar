@@ -297,7 +297,7 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response):
           emailVerificationExpiresAt: 1,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!user) {
