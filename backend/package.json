@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
   "keywords": [],
   "author": "",
@@ -35,6 +36,9 @@
     "@types/node": "^26.6.4",
     "@types/nodemailer": "^8.0.2",
     "@types/socket.io": "^3.0.1",
+    "@types/supertest": "~7.2.0",
+    "mongodb-memory-server": "~11.2.0",
+    "supertest": "~7.2.2",
     "tsx": "^4.23.15",
     "typescript": "5.9.3"
   }

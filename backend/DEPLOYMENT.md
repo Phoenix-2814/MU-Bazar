@@ -62,3 +62,7 @@ accepts existing MU Bazar accounts; sign-up creates an account and asks for host
 - Configure MongoDB network access and backups.
 - Verify image uploads, chat sockets, listing CRUD, and email-domain restrictions against production.
 - Verify university-email links and the configured email provider before opening registration.
+
+## Backend tests
+
+Run `npm test` in `backend/`. The tests use a temporary in-memory MongoDB (downloaded automatically on the first run) and fake ImageKit and email credentials. No `.env` or real database is needed, and no emails are sent. GitHub Actions runs them on every pull request that changes `backend/`.
