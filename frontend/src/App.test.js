@@ -129,7 +129,7 @@ test('shows public listings without requiring a login', async () => {
   expect(await screen.findByText('Public listing')).toBeInTheDocument();
   expect(axios.get).toHaveBeenCalledWith(
     expect.stringMatching(/\/api\/items$/),
-    { timeout: 15000 }
+    { params: { limit: 20, offset: 0, sort: 'newest' }, timeout: 15000 }
   );
   expect(localStorage.getItem('token')).toBeNull();
 });
@@ -943,6 +943,73 @@ test('marks an owned product sold with an explicit desired status', async () => 
       headers: expect.objectContaining({
         Authorization: expect.stringMatching(/^Bearer /),
       }),
+    })
+  ));
+});
+
+const makeListing = (index) => ({
+  _id: `page-listing-${index}`,
+  title: `Paged listing ${index}`,
+  description: 'Available to all visitors',
+  price: 100 + index,
+  category: 'BOOKS',
+  condition: 'USED_GOOD',
+  images: [],
+  isSold: false,
+  seller: { name: 'Seller', residencyType: 'outsider' },
+});
+
+test('loads the next page of listings with the Load more button', async () => {
+  const firstPage = Array.from({ length: 20 }, (_, index) => makeListing(index + 1));
+  const secondPage = [makeListing(21), makeListing(22)];
+  axios.get.mockImplementation((url, config) => {
+    if (url.endsWith('/api/items')) {
+      return Promise.resolve({
+        data: config.params.offset === 0
+          ? { items: firstPage, total: 22, hasMore: true }
+          : { items: secondPage, total: 22, hasMore: false },
+      });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  render(<App />);
+
+  expect(await screen.findByText('Paged listing 20')).toBeInTheDocument();
+  expect(screen.getByText('Showing 20 of 22 listings')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Load more listings' }));
+
+  expect(await screen.findByText('Paged listing 22')).toBeInTheDocument();
+  expect(document.querySelectorAll('.items-grid .item-card')).toHaveLength(22);
+  expect(axios.get).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/items$/),
+    expect.objectContaining({ params: expect.objectContaining({ limit: 20, offset: 20 }) })
+  );
+  expect(screen.queryByRole('button', { name: 'Load more listings' })).not.toBeInTheDocument();
+});
+
+test('sends search, category, price, and sort filters to the listings API', async () => {
+  axios.get.mockResolvedValue({ data: { items: [], total: 0, hasMore: false } });
+
+  render(<App />);
+  await screen.findByText('No listings match your search or filters.');
+
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search listings' }), { target: { value: '  Physics   Book ' } });
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Minimum price' }), { target: { value: '100' } });
+  fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'price-low' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Books & Notes' }));
+
+  await waitFor(() => expect(axios.get).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/items$/),
+    expect.objectContaining({
+      params: {
+        limit: 20,
+        offset: 0,
+        sort: 'price-low',
+        q: 'physics book',
+        category: 'BOOKS',
+        minPrice: '100',
+      },
     })
   ));
 });
