@@ -380,7 +380,7 @@ router.patch('/admin/users/:userId/status', authenticateToken, async (req: AuthR
         $set: { isSuspended: false, suspensionReason: '' },
         $unset: { suspendedAt: 1, suspendedBy: 1 },
       };
-    const updatedUser = await User.findByIdAndUpdate(userId, update, { new: true, runValidators: true })
+    const updatedUser = await User.findByIdAndUpdate(userId, update, { returnDocument: 'after', runValidators: true })
       .select('name email isSuspended suspensionReason suspendedAt');
     if (!updatedUser) {
       res.status(404).json({ message: 'User not found.' });
@@ -452,7 +452,7 @@ router.patch(
       const listing = await Listing.findByIdAndUpdate(
         listingId,
         { $set: { isHidden, isHiddenBySuspension: false } },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       ).populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber');
 
       if (!listing) {
@@ -538,7 +538,7 @@ router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res
     const report = await ListingReport.findByIdAndUpdate(
       reportId,
       { $set: { status, adminNote: adminNote.trim(), reviewedBy: userId } },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     )
       .populate({
         path: 'listing',
