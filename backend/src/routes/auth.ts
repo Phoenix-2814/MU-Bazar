@@ -7,6 +7,7 @@ import User from '../models/User';
 import JWT_SECRET from '../config/jwt';
 import { sendVerificationEmail } from '../config/mailer';
 import { imageUpload, uploadImage } from '../config/imageStorage';
+import { authRateLimit, loginRateLimit } from '../middleware/rateLimit';
 
 const router: Router = express.Router();
 const googleClient = new OAuth2Client();
@@ -48,7 +49,7 @@ const toSafeUser = (user: InstanceType<typeof User>) => {
   return userObject;
 };
 
-router.post('/google', async (req: Request, res: Response): Promise<void> => {
+router.post('/google', authRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { credential, mode, residencyType, hostelName, hostelBlock, roomNumber } = req.body || {};
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
@@ -150,6 +151,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 // POST /api/auth/register (Handles Multipart Form Data)
 router.post(
   '/register',
+  authRateLimit,
   imageUpload.single('profilePic'),
   async (req: RegisterRequest, res: Response): Promise<void> => {
     try {
@@ -274,7 +276,7 @@ router.post(
   }
 );
 
-router.post('/verify-email', async (req: Request, res: Response): Promise<void> => {
+router.post('/verify-email', authRateLimit, async (req: Request, res: Response): Promise<void> => {
   const token = req.body?.token;
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
     res.status(400).json({ message: 'Invalid or expired verification link.' });
@@ -311,7 +313,7 @@ router.post('/verify-email', async (req: Request, res: Response): Promise<void> 
   }
 });
 
-router.post('/resend-verification', async (req: Request, res: Response): Promise<void> => {
+router.post('/resend-verification', authRateLimit, async (req: Request, res: Response): Promise<void> => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!/^[^\s@]+@marwadiuniversity\.ac\.in$/.test(email)) {
     res.status(400).json({ message: 'Enter a valid MU email address.' });
@@ -342,7 +344,7 @@ router.post('/resend-verification', async (req: Request, res: Response): Promise
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+router.post('/login', authRateLimit, loginRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body || {};
 

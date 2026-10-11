@@ -743,7 +743,11 @@ function App() {
       if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
         setNeedsEmailVerification(true);
         setAuthMessage(message);
-      } else if (authMode === 'register' && [429, 503].includes(err.response?.status)) {
+      } else if (
+        authMode === 'register' &&
+        [429, 503].includes(err.response?.status) &&
+        err.response?.data?.code !== 'RATE_LIMITED'
+      ) {
         setAuthForm((form) => ({ ...form, email: form.email.trim().toLowerCase() }));
         setAuthMode('login');
         setNeedsEmailVerification(true);
