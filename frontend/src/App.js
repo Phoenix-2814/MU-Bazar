@@ -12,6 +12,9 @@ import AdminUsers from './AdminUsers';
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
 const LISTINGS_REQUEST_TIMEOUT_MS = 15000;
+const LISTINGS_PAGE_SIZE = 20;
+const MAX_LISTINGS_PAGE_SIZE = 100;
+const LISTING_FILTER_DEBOUNCE_MS = 300;
 const MAX_LISTING_TITLE_LENGTH = 120;
 const MAX_LISTING_DESCRIPTION_LENGTH = 5000;
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -26,6 +29,33 @@ const CATEGORY_OPTIONS = [
 ];
 
 const normalizeSearchText = (value) => String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+const validPriceFilter = (value) => {
+  if (value === '') return '';
+  const price = Number(value);
+  return Number.isFinite(price) && price >= 0 && price <= 500000 ? String(price) : '';
+};
+const getListingParamsKey = ({ searchQuery, selectedCategory, minimumPrice, maximumPrice, listingSort }) => {
+  let minPrice = validPriceFilter(minimumPrice);
+  let maxPrice = validPriceFilter(maximumPrice);
+  if (minPrice !== '' && maxPrice !== '' && Number(minPrice) > Number(maxPrice)) {
+    minPrice = '';
+    maxPrice = '';
+  }
+  return JSON.stringify({
+    q: normalizeSearchText(searchQuery),
+    category: selectedCategory,
+    minPrice,
+    maxPrice,
+    sort: listingSort,
+  });
+};
+const DEFAULT_LISTING_PARAMS_KEY = getListingParamsKey({
+  searchQuery: '',
+  selectedCategory: 'ALL',
+  minimumPrice: '',
+  maximumPrice: '',
+  listingSort: 'newest',
+});
 const getSavedTheme = () => {
   try {
     return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
@@ -179,6 +209,9 @@ const NOTIFICATIONS_STORAGE_KEY = 'mubazar-notifications';
 function App() {
   const [savedSession] = useState(getSavedSession);
   const [items, setItems] = useState([]);
+  const [hasMoreItems, setHasMoreItems] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loadingMoreItems, setLoadingMoreItems] = useState(false);
   const [myProducts, setMyProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [itemsLoadError, setItemsLoadError] = useState('');
@@ -221,6 +254,8 @@ function App() {
   const profilePageRef = useRef(null);
   const seenListingIdsRef = useRef(null);
   const listingRequestIdRef = useRef(0);
+  const itemsRef = useRef([]);
+  const loadedListingParamsKeyRef = useRef(null);
   const unreadCountRef = useRef(unreadMessageCount);
   const browserNotificationPermissionRef = useRef(browserNotificationPermission);
   const currentUserId = user?._id || user?.id;
@@ -261,6 +296,7 @@ function App() {
   const [listingSort, setListingSort] = useState('newest');
   const [minimumPrice, setMinimumPrice] = useState('');
   const [maximumPrice, setMaximumPrice] = useState('');
+  const [listingParamsKey, setListingParamsKey] = useState(DEFAULT_LISTING_PARAMS_KEY);
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
   // Forms
@@ -345,23 +381,46 @@ function App() {
     }
   }, []);
 
-  const fetchItems = useCallback(async ({ background = false, notifyNewListings = false } = {}) => {
+  const fetchItems = useCallback(async ({ background = false, notifyNewListings = false, append = false } = {}) => {
     const requestId = ++listingRequestIdRef.current;
+    const sameFilters = loadedListingParamsKeyRef.current === listingParamsKey;
+    const loadedCount = sameFilters ? itemsRef.current.length : 0;
+    const offset = append ? loadedCount : 0;
+    const limit = append
+      ? LISTINGS_PAGE_SIZE
+      : Math.min(MAX_LISTINGS_PAGE_SIZE, Math.max(LISTINGS_PAGE_SIZE, loadedCount));
+    const filters = JSON.parse(listingParamsKey);
+    const params = {
+      limit,
+      offset,
+      sort: filters.sort,
+      ...(filters.q && { q: filters.q }),
+      ...(filters.category !== 'ALL' && { category: filters.category }),
+      ...(filters.minPrice !== '' && { minPrice: filters.minPrice }),
+      ...(filters.maxPrice !== '' && { maxPrice: filters.maxPrice }),
+      ...(currentUserId && { excludeSeller: currentUserId }),
+    };
     try {
-      if (!background) {
+      if (append) {
+        setLoadingMoreItems(true);
+      } else if (!background) {
         setLoading(true);
       }
       const res = await axios.get(`${API_BASE_URL}/api/items`, {
+        params,
         timeout: LISTINGS_REQUEST_TIMEOUT_MS,
       });
       if (requestId !== listingRequestIdRef.current) return;
-      if (Array.isArray(res.data)) {
-        const incomingIds = new Set(res.data.map((item) => item._id));
+      const page = Array.isArray(res.data)
+        ? { items: res.data, total: res.data.length, hasMore: false }
+        : res.data;
+      if (Array.isArray(page?.items)) {
+        const incoming = page.items;
         if (seenListingIdsRef.current === null) {
-          seenListingIdsRef.current = incomingIds;
+          seenListingIdsRef.current = new Set(incoming.map((item) => item._id));
         } else {
-          const newListings = res.data.filter((item) => !seenListingIdsRef.current.has(item._id));
-          seenListingIdsRef.current = incomingIds;
+          const newListings = incoming.filter((item) => !seenListingIdsRef.current.has(item._id));
+          newListings.forEach((item) => seenListingIdsRef.current.add(item._id));
           if (notifyNewListings) {
             newListings
               .filter((item) => {
@@ -378,7 +437,16 @@ function App() {
               }));
           }
         }
-        setItems(res.data);
+        let nextItems = incoming;
+        if (append) {
+          const loadedIds = new Set(itemsRef.current.map((item) => item._id));
+          nextItems = [...itemsRef.current, ...incoming.filter((item) => !loadedIds.has(item._id))];
+        }
+        itemsRef.current = nextItems;
+        loadedListingParamsKeyRef.current = listingParamsKey;
+        setItems(nextItems);
+        setHasMoreItems(Boolean(page.hasMore));
+        setTotalItems(Number.isFinite(page.total) ? page.total : nextItems.length);
         setItemsLoadError('');
       } else {
         setItemsLoadError('The listings service returned an invalid response.');
@@ -392,9 +460,23 @@ function App() {
           : `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
       );
     } finally {
+      if (append) setLoadingMoreItems(false);
       if (requestId === listingRequestIdRef.current) setLoading(false);
     }
-  }, [currentUserId, publishNotification]);
+  }, [currentUserId, publishNotification, listingParamsKey]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setListingParamsKey(getListingParamsKey({
+        searchQuery,
+        selectedCategory,
+        minimumPrice,
+        maximumPrice,
+        listingSort,
+      }));
+    }, LISTING_FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [searchQuery, selectedCategory, minimumPrice, maximumPrice, listingSort]);
 
   useEffect(() => {
     fetchItems();
@@ -1577,6 +1659,19 @@ function App() {
               </div>
             ))}
           </div>
+          )}
+          {!priceRangeError && hasMoreItems && (
+            <div className="load-more-row">
+              <button
+                type="button"
+                className="clear-filters-button load-more-button"
+                onClick={() => fetchItems({ append: true })}
+                disabled={loadingMoreItems}
+              >
+                {loadingMoreItems ? 'Loading…' : 'Load more listings'}
+              </button>
+              <p className="load-more-count">Showing {items.length} of {totalItems} listings</p>
+            </div>
           )}
           </>
         )}

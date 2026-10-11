@@ -2682,3 +2682,21 @@ body {
     justify-content: flex-end;
   }
 }
+.load-more-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 8px;
+}
+
+.load-more-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.load-more-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
