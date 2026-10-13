@@ -1639,6 +1639,18 @@ body {
   font-size: 0.78rem;
 }
 
+.hostel-privacy-note {
+  margin-top: -6px;
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3px solid var(--primary-color, #4f46e5);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #64748b);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .auth-form-message,
 .auth-status-message {
   padding: 10px 12px;
@@ -2716,6 +2728,231 @@ body {
   margin: 24px 0 8px;
 }
 
+/* --- Share Modal & Share Button Styles --- */
+.share-modal-content {
+  width: min(100%, 450px);
+  max-width: 450px;
+  text-align: center;
+  padding: 30px 24px 24px;
+}
+
+.share-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-icon-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary-color, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.share-modal-subtitle {
+  color: var(--text-muted, #64748b);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.share-item-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.share-preview-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.share-preview-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.share-preview-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-preview-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-preview-price {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--primary-color, #4f46e5);
+}
+
+.share-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  padding: 6px 6px 6px 12px;
+}
+
+.share-link-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #334155);
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-copy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-color, #4f46e5);
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-copy-link:hover {
+  opacity: 0.9;
+}
+
+.btn-copy-link.copied {
+  background: #10b981;
+}
+
+.share-actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-share-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #25d366;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 12px 18px;
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28);
+  transition: all 0.2s ease;
+}
+
+.btn-share-whatsapp:hover {
+  background: #1ebd5a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
+}
+
+.btn-share-native {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-color, #cbd5e1);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg, 12px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-share-native:hover {
+  background: var(--bg-hover, #f1f5f9);
+}
+
+.share-modal-footer {
+  margin-top: 4px;
+}
+
+.btn-share-done {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-md, 8px);
+  transition: all 0.2s;
+}
+
+.btn-share-done:hover {
+  color: var(--text-primary, #0f172a);
+  background: var(--bg-surface, #f1f5f9);
+}
+
+/* Card Share Button */
+.btn-card-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 6px 11px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-card-share:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+
 .load-more-button:disabled {
   opacity: 0.6;
   cursor: wait;
@@ -2725,4 +2962,121 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* --- Item Detail Modal Styles --- */
+.item-detail-modal-content {
+  width: min(100%, 540px);
+  max-width: 540px;
+  padding: 24px;
+}
+
+.detail-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.detail-image-wrapper .carousel-image,
+.detail-image-wrapper .single-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-price-tag {
+  font-size: 1.15rem;
+  padding: 6px 14px;
+}
+
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.detail-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.category-badge {
+  margin-left: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color, #4f46e5);
+}
+
+.detail-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.detail-description {
+  color: var(--text-secondary, #334155);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.detail-seller-card {
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  padding: 12px 16px;
+}
+
+.detail-seller-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-seller-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-seller-meta .seller-name {
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  font-size: 0.95rem;
+}
+
+.detail-seller-meta .seller-info {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
+.detail-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.detail-chat-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.detail-sold-notice {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  font-size: 0.9rem;
 }

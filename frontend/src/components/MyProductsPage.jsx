@@ -1,6 +1,7 @@
 export default function MyProductsPage({
   activePage,
   handleDeleteProduct,
+  handleShareListing,
   handleToggleSold,
   isUpdatingListingStatus,
   myActiveListings,
@@ -42,6 +43,15 @@ export default function MyProductsPage({
                   </span>
                 </div>
                 <div className="action-buttons">
+                  {handleShareListing && (
+                    <button
+                      className="btn-modify"
+                      style={{ background: '#4f46e5', color: '#fff' }}
+                      onClick={() => handleShareListing(item)}
+                    >
+                      Share
+                    </button>
+                  )}
                   <button className="btn-modify" onClick={() => openEditModal(item)}>
                     Modify
                   </button>

@@ -80,6 +80,9 @@ export default function AuthModal({
                       value={authForm.roomNumber}
                       onChange={(e) => setAuthForm({ ...authForm, roomNumber: e.target.value })}
                     />
+                    <p className="hostel-privacy-note">
+                      Note: Your room number and block is not visible to anyone. It is only for validation and security purposes.
+                    </p>
                   </>
                 )}
               </div>
@@ -160,6 +163,9 @@ export default function AuthModal({
                     onChange={(e) => setAuthForm({ ...authForm, roomNumber: e.target.value })}
                     required
                   />
+                  <p className="hostel-privacy-note">
+                    Note: Your room number and block is not visible to anyone. It is only for validation and security purposes.
+                  </p>
                 </>
               )}
             </>

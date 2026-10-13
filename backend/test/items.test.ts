@@ -148,4 +148,18 @@ describe('editing and deleting listings', () => {
     const report = await ListingReport.findOne();
     assert.equal(report?.status, 'open');
   });
+
+  test('fetches a single listing by ID for direct links and rejects hidden items', async () => {
+    const { user: seller } = await createUser();
+    const visibleItem = await createListing(seller._id, { title: 'Calculus Book' });
+    const hiddenItem = await createListing(seller._id, { title: 'Hidden Item', isHidden: true });
+
+    const res = await request(app).get(`/api/items/${visibleItem._id}`).expect(200);
+    assert.equal(res.body.title, 'Calculus Book');
+    assert.equal(res.body.seller.name, seller.name);
+
+    await request(app).get(`/api/items/${hiddenItem._id}`).expect(404);
+    await request(app).get('/api/items/not-a-valid-id').expect(400);
+  });
 });
+

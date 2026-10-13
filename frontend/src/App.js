@@ -34,6 +34,8 @@ import MyProductsPage from './components/MyProductsPage';
 import Navbar from './components/Navbar';
 import PostListingModal from './components/PostListingModal';
 import ProfilePage from './components/ProfilePage';
+import ShareModal from './components/ShareModal';
+import ItemDetailModal from './components/ItemDetailModal';
 
 function App() {
   const [savedSession] = useState(getSavedSession);
@@ -119,6 +121,9 @@ function App() {
   const [editItemModal, setEditItemModal] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatConversationId, setChatConversationId] = useState(null);
+  const [shareModalItem, setShareModalItem] = useState(null);
+  const [isNewPostShare, setIsNewPostShare] = useState(false);
+  const [deepLinkedItem, setDeepLinkedItem] = useState(null);
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -533,6 +538,57 @@ function App() {
     };
   }, [token, currentUserId]);
 
+  const handleShareListing = useCallback((item) => {
+    setShareModalItem(item);
+    setIsNewPostShare(false);
+  }, []);
+
+  const closeDeepLinkedItem = useCallback(() => {
+    setDeepLinkedItem(null);
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/item/')) {
+      window.history.pushState(null, '', '/');
+    }
+  }, []);
+
+  // Handle URL routing & Deep Linking (/item/:id or ?item=id)
+  useEffect(() => {
+    let cancelled = false;
+
+    const handleUrlChange = async () => {
+      if (typeof window === 'undefined') return;
+      const path = window.location.pathname;
+      const search = new URLSearchParams(window.location.search);
+      const itemQuery = search.get('item');
+      const itemMatch = path.match(/^\/item\/([a-fA-F0-9]{24})/);
+      const itemId = itemMatch ? itemMatch[1] : (itemQuery && /^[a-fA-F0-9]{24}$/.test(itemQuery) ? itemQuery : null);
+
+      if (itemId) {
+        const found = itemsRef.current.find((i) => i._id === itemId);
+        if (found) {
+          if (!cancelled) setDeepLinkedItem(found);
+        } else {
+          try {
+            const res = await axios.get(`${API_BASE_URL}/api/items/${itemId}`);
+            if (!cancelled && res.data) {
+              setDeepLinkedItem(res.data);
+            }
+          } catch (err) {
+            if (!cancelled) console.error('Failed to load deep-linked listing:', err);
+          }
+        }
+      } else {
+        if (!cancelled) setDeepLinkedItem(null);
+      }
+    };
+
+    handleUrlChange();
+    window.addEventListener('popstate', handleUrlChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, []);
+
   useEffect(() => {
     if (!token || !currentUserId) {
       setUnreadMessageCount(0);
@@ -830,14 +886,27 @@ function App() {
         }
       }
 
-      await axios.post(`${API_BASE_URL}/api/items`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/items`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
       });
+      const createdItem = response.data?.item;
       showToast('Item posted successfully!');
       setShowPostModal(false);
+      setPostForm({
+        title: '',
+        description: '',
+        price: '',
+        category: 'BOOKS',
+        condition: 'USED_GOOD',
+        images: null,
+      });
+      if (createdItem) {
+        setShareModalItem(createdItem);
+        setIsNewPostShare(true);
+      }
       fetchItems();
       refreshMyProducts();
     } catch (err) {
@@ -1171,6 +1240,7 @@ function App() {
             filteredItems={filteredItems}
             handleMessageSeller={handleMessageSeller}
             handleReportListing={handleReportListing}
+            handleShareListing={handleShareListing}
             hasMoreItems={hasMoreItems}
             items={items}
             itemsLoadError={itemsLoadError}
@@ -1229,6 +1299,7 @@ function App() {
           <MyProductsPage
             activePage={activePage}
             handleDeleteProduct={handleDeleteProduct}
+            handleShareListing={handleShareListing}
             handleToggleSold={handleToggleSold}
             isUpdatingListingStatus={isUpdatingListingStatus}
             myActiveListings={myActiveListings}
@@ -1302,6 +1373,29 @@ function App() {
             setReportingItem(null);
             setAuthMessage(message);
           }}
+        />
+      )}
+
+      {/* Share Modal */}
+      {shareModalItem && (
+        <ShareModal
+          item={shareModalItem}
+          isNewPost={isNewPostShare}
+          onClose={() => {
+            setShareModalItem(null);
+            setIsNewPostShare(false);
+          }}
+        />
+      )}
+
+      {/* Deep-Linked Item Detail Modal */}
+      {deepLinkedItem && (
+        <ItemDetailModal
+          item={deepLinkedItem}
+          onClose={closeDeepLinkedItem}
+          handleMessageSeller={handleMessageSeller}
+          handleShareListing={handleShareListing}
+          handleReportListing={handleReportListing}
         />
       )}
     </div>

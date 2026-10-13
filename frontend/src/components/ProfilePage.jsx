@@ -92,6 +92,9 @@ export default function ProfilePage({
                   onChange={(e) => setProfileForm({ ...profileForm, roomNumber: e.target.value })}
                   required
                 />
+                <p className="hostel-privacy-note">
+                  Note: Your room number and block is not visible to anyone. It is only for validation and security purposes.
+                </p>
               </>
             )}
             <div className="profile-actions-row">

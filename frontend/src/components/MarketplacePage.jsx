@@ -1,3 +1,4 @@
+import { Share2 } from 'lucide-react';
 import ListingImage from './ListingImage';
 import { CATEGORY_OPTIONS } from '../config';
 
@@ -7,6 +8,7 @@ export default function MarketplacePage({
   filteredItems,
   handleMessageSeller,
   handleReportListing,
+  handleShareListing,
   hasMoreItems,
   items,
   itemsLoadError,
@@ -187,17 +189,23 @@ export default function MarketplacePage({
                   <span className="seller-info">
                     {item.seller?.residencyType === 'outsider'
                       ? 'Outsider'
-                      : [
-                        item.seller?.hostelName,
-                        item.seller?.hostelBlock && `Block ${item.seller.hostelBlock}`,
-                        item.seller?.roomNumber && `Room ${item.seller.roomNumber}`,
-                      ].filter(Boolean).join(' · ') || 'Hosteler'}
+                      : (item.seller?.hostelName || 'Hosteler')}
                   </span>
                 </div>
               </div>
 
               <div className="card-footer">
                 <span className="badge">{(item.condition || '').replace('_', ' ')}</span>
+                <button
+                  type="button"
+                  className="btn-card-share"
+                  onClick={() => handleShareListing(item)}
+                  title="Share this listing"
+                  aria-label={`Share ${item.title}`}
+                >
+                  <Share2 size={14} />
+                  <span>Share</span>
+                </button>
                 {item.isSold ? (
                   <span className="sold-badge">Sold</span>
                 ) : (

@@ -218,6 +218,30 @@ router.get('/mine', authenticateToken, async (req: AuthRequest, res: Response): 
   }
 });
 
+// GET /api/items/:id - Fetch single listing by ID for direct links
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({ message: 'Invalid listing ID.' });
+      return;
+    }
+
+    const item = await Listing.findById(id)
+      .populate('seller', 'name residencyType hostelName hostelBlock profilePic');
+
+    if (!item || item.isHidden) {
+      res.status(404).json({ message: 'Listing not found or is no longer available.' });
+      return;
+    }
+
+    res.json(item);
+  } catch (err) {
+    console.error('Error fetching item by id:', err);
+    res.status(500).json({ message: 'Failed to fetch listing details.' });
+  }
+});
+
 // POST /api/items - Post new listing
 router.post(
   '/',
