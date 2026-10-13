@@ -841,10 +841,10 @@ test('shows the user management page only to authorized admins', async () => {
 test('closes registration and prominently confirms verification email was sent', async () => {
   axios.get.mockResolvedValue({ data: [] });
   axios.post.mockResolvedValue({
-    data: { message: 'Account created. Check your MU email for a verification link before logging in.' },
+    data: { message: 'Account created. Check your MU email for a verification link before logging in. Check your spam.' },
   });
 
-  render(<App />);
+  const { container } = render(<App />);
   fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
   fireEvent.click(screen.getByText('Register here'));
 
@@ -859,8 +859,12 @@ test('closes registration and prominently confirms verification email was sent',
   fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'password123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Register' }));
 
-  const statusMessage = await screen.findByText(/check your mu email/i);
+  const statusMessage = await screen.findByText(/check your mu email/i, {
+    selector: '.auth-status-message span',
+  });
   expect(statusMessage).toHaveTextContent(/check your mu email/i);
+  expect(statusMessage).toHaveTextContent(/check your spam/i);
+  expect(container.querySelector('.app-toast')).toHaveTextContent(/check your spam/i);
   await waitFor(() => expect(screen.queryByRole('heading', { name: 'Register' })).not.toBeInTheDocument());
 });
 

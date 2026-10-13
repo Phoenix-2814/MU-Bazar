@@ -227,7 +227,7 @@ router.post(
         }
         try {
           await sendVerification(existingUser);
-          res.status(200).json({ message: 'A new verification link has been sent to your MU email.' });
+          res.status(200).json({ message: 'A new verification link has been sent to your MU email. Check your spam.' });
         } catch (err) {
           if (err instanceof Error && err.message.includes('wait one minute')) {
             res.status(429).json({ message: err.message });
@@ -272,7 +272,7 @@ router.post(
       }
 
       res.status(201).json({
-        message: 'Account created. Check your MU email for a verification link before logging in.',
+        message: 'Account created. Check your MU email for a verification link before logging in. Check your spam.',
       });
     } catch (err: any) {
       console.error('Registration Error:', err);
@@ -429,7 +429,7 @@ router.post('/resend-verification', authRateLimit, async (req: Request, res: Res
       }
     }
 
-    res.json({ message: 'If an unverified account exists for that email, a verification link has been sent.' });
+    res.json({ message: 'If an unverified account exists for that email, a verification link has been sent. Check your spam.' });
   } catch (err) {
     console.error('Verification email request failed:', err);
     res.status(500).json({ message: 'Could not process verification request.' });

@@ -708,10 +708,12 @@ function App() {
         res = await axios.post(`${API_BASE_URL}/api/auth/register`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+        const verificationMsg = res.data?.message || 'Account created. Check your MU email for a verification link before logging in. Check your spam.';
         setAuthForm((form) => ({ ...form, email: normalizedEmail }));
         setAuthMode('login');
         setNeedsEmailVerification(true);
-        setAuthMessage(res.data.message);
+        setAuthMessage(verificationMsg);
+        showToast(verificationMsg, 'success');
         setShowAuthModal(false);
         return;
       } else {
@@ -754,7 +756,9 @@ function App() {
       const res = await axios.post(`${API_BASE_URL}/api/auth/resend-verification`, {
         email: authForm.email.trim().toLowerCase(),
       });
-      setAuthMessage(res.data.message);
+      const msg = res.data?.message || 'A verification link has been sent. Check your spam.';
+      setAuthMessage(msg);
+      showToast(msg, 'success');
     } catch (err) {
       setAuthMessage(err.response?.data?.message || 'Could not resend the verification email.');
     }
