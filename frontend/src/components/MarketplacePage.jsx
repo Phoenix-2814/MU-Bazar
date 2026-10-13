@@ -1,4 +1,4 @@
-import { Share2 } from 'lucide-react';
+import { Share2, Flag, MessageCircle } from 'lucide-react';
 import ListingImage from './ListingImage';
 import { CATEGORY_OPTIONS } from '../config';
 
@@ -149,6 +149,18 @@ export default function MarketplacePage({
           <div className="item-card" key={item._id}>
             <div className="image-container">
               <ListingImage images={item.images} title={item.title} />
+              <button
+                type="button"
+                className="btn-card-floating-share"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShareListing(item);
+                }}
+                title="Share this listing"
+                aria-label={`Share ${item.title}`}
+              >
+                <Share2 size={15} />
+              </button>
               <span className="price-tag">₹{item.price}</span>
               {item.isSold && <span className="public-sold-badge">SOLD</span>}
             </div>
@@ -196,34 +208,29 @@ export default function MarketplacePage({
 
               <div className="card-footer">
                 <span className="badge">{(item.condition || '').replace('_', ' ')}</span>
-                <button
-                  type="button"
-                  className="btn-card-share"
-                  onClick={() => handleShareListing(item)}
-                  title="Share this listing"
-                  aria-label={`Share ${item.title}`}
-                >
-                  <Share2 size={14} />
-                  <span>Share</span>
-                </button>
-                {item.isSold ? (
-                  <span className="sold-badge">Sold</span>
-                ) : (
+                <div className="card-footer-actions">
+                  {item.isSold ? (
+                    <span className="sold-badge">Sold</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-chat-seller"
+                      onClick={() => handleMessageSeller(item)}
+                    >
+                      <MessageCircle size={13} />
+                      <span>Message seller</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="btn-chat-seller"
-                    onClick={() => handleMessageSeller(item)}
+                    className="btn-report-listing-icon"
+                    onClick={() => handleReportListing(item)}
+                    title="Report this listing"
+                    aria-label={`Report ${item.title}`}
                   >
-                    Message seller
+                    <Flag size={14} />
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="btn-report-listing"
-                  onClick={() => handleReportListing(item)}
-                >
-                  Report
-                </button>
+                </div>
               </div>
             </div>
           </div>

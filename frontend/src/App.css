@@ -849,6 +849,39 @@ body {
   transform: scale(1.05);
 }
 
+.btn-card-floating-share {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.btn-card-floating-share:hover {
+  background: #ffffff;
+  color: var(--primary-color, #4f46e5);
+  transform: scale(1.12);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-card-floating-share:active {
+  transform: scale(0.92);
+}
+
 .price-tag {
   position: absolute;
   bottom: 12px;
@@ -972,7 +1005,13 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
+}
+
+.card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .badge {
@@ -984,12 +1023,13 @@ body {
   padding: 4px 10px;
   border-radius: 6px;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .sold-badge {
   display: inline-block;
-  padding: 4px 9px;
-  border-radius: 6px;
+  padding: 5px 10px;
+  border-radius: 14px;
   color: #b91c1c;
   background: #fee2e2;
   font-size: 0.68rem;
@@ -998,34 +1038,52 @@ body {
 }
 
 .btn-chat-seller {
-  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
   border: 0;
   border-radius: 20px;
   color: #fff;
   background: #4f46e5;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-chat-seller:hover {
   background: #3730a3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
 }
 
-.btn-report-listing {
-  padding: 7px 10px;
-  border: 1px solid #fecaca;
-  border-radius: 20px;
-  color: #b91c1c;
+.btn-report-listing,
+.btn-report-listing-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #fee2e2;
+  color: #ef4444;
   background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.72rem;
-  font-weight: 700;
   cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.btn-report-listing:hover {
-  background: #fef2f2;
+.btn-report-listing:hover,
+.btn-report-listing-icon:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  transform: scale(1.08);
 }
 
 .report-modal-overlay {
