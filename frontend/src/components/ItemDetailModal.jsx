@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Share2, MessageCircle, MapPin, Tag, ShieldCheck } from 'lucide-react';
+import { X, Share2, MessageCircle } from 'lucide-react';
 import ListingImage from './ListingImage';
 
 export default function ItemDetailModal({
