@@ -70,6 +70,7 @@ function App() {
   ));
   const [authMessage, setAuthMessage] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [passwordResetToken, setPasswordResetToken] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isPostingItem, setIsPostingItem] = useState(false);
   const [isUpdatingListingStatus, setIsUpdatingListingStatus] = useState(false);
@@ -133,6 +134,7 @@ function App() {
     name: '',
     email: '',
     password: '',
+    passwordConfirmation: '',
     phone: '',
     residencyType: 'hosteler',
     hostelName: '',
@@ -401,7 +403,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!showAuthModal || !GOOGLE_CLIENT_ID || !googleScriptLoaded || !googleButtonRef.current) return;
+    if (
+      !showAuthModal ||
+      !['login', 'register'].includes(authMode) ||
+      !GOOGLE_CLIENT_ID ||
+      !googleScriptLoaded ||
+      !googleButtonRef.current
+    ) return;
 
     googleButtonRef.current.replaceChildren();
     window.google.accounts.id.initialize({
@@ -468,6 +476,20 @@ function App() {
       .catch((err) => {
         setAuthMessage(err.response?.data?.message || 'Could not verify your email. Request a new link and try again.');
       });
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const resetToken = url.searchParams.get('resetPassword');
+    if (!resetToken) return;
+
+    url.searchParams.delete('resetPassword');
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+    setPasswordResetToken(resetToken);
+    setAuthMode('resetPassword');
+    setNeedsEmailVerification(false);
+    setAuthMessage('');
+    setShowAuthModal(true);
   }, []);
 
   useEffect(() => {
@@ -679,6 +701,41 @@ function App() {
       setAuthMessage(res.data.message);
     } catch (err) {
       setAuthMessage(err.response?.data?.message || 'Could not resend the verification email.');
+    }
+  };
+
+  const handlePasswordResetRequest = async (e) => {
+    e.preventDefault();
+    setAuthMessage('');
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/auth/request-password-reset`, {
+        email: authForm.email.trim().toLowerCase(),
+      });
+      setAuthMessage(res.data.message);
+    } catch (err) {
+      setAuthMessage(err.response?.data?.message || 'Could not process your password reset request.');
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setAuthMessage('');
+    if (authForm.password !== authForm.passwordConfirmation) {
+      setAuthMessage('Passwords do not match.');
+      return;
+    }
+
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/auth/reset-password`, {
+        token: passwordResetToken,
+        password: authForm.password,
+      });
+      setPasswordResetToken('');
+      setAuthForm((form) => ({ ...form, password: '', passwordConfirmation: '' }));
+      setAuthMode('login');
+      setAuthMessage(res.data.message);
+    } catch (err) {
+      setAuthMessage(err.response?.data?.message || 'Could not reset your password. Please try again.');
     }
   };
 
@@ -1199,6 +1256,8 @@ function App() {
           authForm={authForm}
           authMessage={authMessage}
           authMode={authMode}
+          handlePasswordReset={handlePasswordReset}
+          handlePasswordResetRequest={handlePasswordResetRequest}
           googleButtonRef={googleButtonRef}
           googleScriptLoaded={googleScriptLoaded}
           handleAuth={handleAuth}

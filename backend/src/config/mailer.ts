@@ -5,18 +5,25 @@ interface VerificationEmail {
   token: string;
 }
 
-const createVerificationUrl = (token: string): string => {
+interface EmailMessage {
+  email: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+const createFrontendUrl = (parameter: string, token: string): string => {
   const frontendUrl = process.env.FRONTEND_URL;
   if (!frontendUrl) {
     throw new Error('FRONTEND_URL must be configured.');
   }
 
-  const verificationUrl = new URL('/', frontendUrl);
-  verificationUrl.searchParams.set('verifyEmail', token);
-  return verificationUrl.toString();
+  const url = new URL('/', frontendUrl);
+  url.searchParams.set(parameter, token);
+  return url.toString();
 };
 
-const sendWithBrevo = async (email: string, verificationUrl: string): Promise<void> => {
+const sendWithBrevo = async ({ email, subject, text, html }: EmailMessage): Promise<void> => {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.EMAIL_FROM;
   const senderName = process.env.EMAIL_FROM_NAME || 'MU Bazar';
@@ -35,22 +42,21 @@ const sendWithBrevo = async (email: string, verificationUrl: string): Promise<vo
     body: JSON.stringify({
       sender: { name: senderName, email: senderEmail },
       to: [{ email }],
-      subject: 'Verify your MU Bazar email',
-      textContent: `Verify your MU Bazar account using this link: ${verificationUrl}\nThis link expires in 24 hours.`,
-      htmlContent: `<p>Verify your MU Bazar account by clicking the link below. This link expires in 24 hours.</p><p><a href="${verificationUrl}">Verify email address</a></p>`,
+      subject,
+      textContent: text,
+      htmlContent: html,
     }),
   });
 
   if (!response.ok) {
     const responseDetails = (await response.text()).slice(0, 500);
-    throw new Error(`Brevo rejected the verification email (HTTP ${response.status}): ${responseDetails}`);
+    throw new Error(`Brevo rejected the email (HTTP ${response.status}): ${responseDetails}`);
   }
 };
 
-export const sendVerificationEmail = async ({ email, token }: VerificationEmail): Promise<void> => {
-  const verificationUrl = createVerificationUrl(token);
+const sendEmail = async (message: EmailMessage): Promise<void> => {
   if ((process.env.EMAIL_PROVIDER || 'smtp').toLowerCase() === 'brevo') {
-    await sendWithBrevo(email, verificationUrl);
+    await sendWithBrevo(message);
     return;
   }
 
@@ -73,9 +79,29 @@ export const sendVerificationEmail = async ({ email, token }: VerificationEmail)
 
   await transporter.sendMail({
     from,
-    to: email,
+    to: message.email,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+  });
+};
+
+export const sendVerificationEmail = async ({ email, token }: VerificationEmail): Promise<void> => {
+  const verificationUrl = createFrontendUrl('verifyEmail', token);
+  await sendEmail({
+    email,
     subject: 'Verify your MU Bazar email',
-    text: `Verify your MU Bazar account using this link: ${verificationUrl.toString()}\nThis link expires in 24 hours.`,
-    html: `<p>Verify your MU Bazar account by clicking the link below. This link expires in 24 hours.</p><p><a href="${verificationUrl.toString()}">Verify email address</a></p>`,
+    text: `Verify your MU Bazar account using this link: ${verificationUrl}\nThis link expires in 24 hours.`,
+    html: `<p>Verify your MU Bazar account by clicking the link below. This link expires in 24 hours.</p><p><a href="${verificationUrl}">Verify email address</a></p>`,
+  });
+};
+
+export const sendPasswordResetEmail = async ({ email, token }: VerificationEmail): Promise<void> => {
+  const resetUrl = createFrontendUrl('resetPassword', token);
+  await sendEmail({
+    email,
+    subject: 'Reset your MU Bazar password',
+    text: `Reset your MU Bazar password using this link: ${resetUrl}\nThis link expires in one hour. If you did not request a reset, you can ignore this email.`,
+    html: `<p>Reset your MU Bazar password by clicking the link below. This link expires in one hour.</p><p><a href="${resetUrl}">Reset password</a></p><p>If you did not request a reset, you can ignore this email.</p>`,
   });
 };

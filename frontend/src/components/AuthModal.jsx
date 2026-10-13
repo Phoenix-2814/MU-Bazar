@@ -4,6 +4,8 @@ export default function AuthModal({
   authForm,
   authMessage,
   authMode,
+  handlePasswordReset,
+  handlePasswordResetRequest,
   googleButtonRef,
   googleScriptLoaded,
   handleAuth,
@@ -17,17 +19,37 @@ export default function AuthModal({
   setNeedsEmailVerification,
   setShowAuthModal,
 }) {
+  const isLogin = authMode === 'login';
+  const isRegister = authMode === 'register';
+  const isForgotPassword = authMode === 'forgotPassword';
+  const isResetPassword = authMode === 'resetPassword';
+  const isRecoveryMode = isForgotPassword || isResetPassword;
+
+  const title = isRegister
+    ? 'Register'
+    : isForgotPassword
+      ? 'Forgot password'
+      : isResetPassword
+        ? 'Reset password'
+        : 'Login';
+
+  const handleSubmit = isForgotPassword
+    ? handlePasswordResetRequest
+    : isResetPassword
+      ? handlePasswordReset
+      : handleAuth;
+
   return (
     <div className="modal-overlay">
       <div className="modal-content">
         <button className="close-btn" onClick={() => setShowAuthModal(false)}>
           &times;
         </button>
-        <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
+        <h2>{title}</h2>
         {authMessage && <p className="auth-form-message" role="status">{authMessage}</p>}
-        {GOOGLE_CLIENT_ID && (
+        {!isRecoveryMode && GOOGLE_CLIENT_ID && (
           <div className="google-auth-section">
-            {authMode === 'register' && (
+            {isRegister && (
               <div className="google-signup-profile">
                 <p>Choose your residency for Google sign-up</p>
                 <select
@@ -70,8 +92,8 @@ export default function AuthModal({
             <div className="auth-divider"><span>or use email</span></div>
           </div>
         )}
-        <form onSubmit={handleAuth}>
-          {authMode === 'register' && (
+        <form onSubmit={handleSubmit}>
+          {isRegister && (
             <>
               <div className="profile-pic-upload reg-pic-upload">
                 {authForm.profilePicPreview ? (
@@ -142,54 +164,93 @@ export default function AuthModal({
               )}
             </>
           )}
-          <input
-            type="email"
-            placeholder={authMode === 'register' ? 'MU email (@marwadiuniversity.ac.in)' : 'Email'}
-            value={authForm.email}
-            onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-            pattern={authMode === 'register' ? ".*@marwadiuniversity\\.ac\\.in" : undefined}
-            title={authMode === 'register' ? 'Use your @marwadiuniversity.ac.in email address.' : undefined}
-            required
-          />
-          {authMode === 'register' && (
+          {(isRegister || isLogin || isForgotPassword) && (
+            <input
+              type="email"
+              placeholder={isRegister || isForgotPassword ? 'MU email (@marwadiuniversity.ac.in)' : 'Email'}
+              value={authForm.email}
+              onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+              pattern={isRegister || isForgotPassword ? ".*@marwadiuniversity\\.ac\\.in" : undefined}
+              title={isRegister || isForgotPassword ? 'Use your @marwadiuniversity.ac.in email address.' : undefined}
+              required
+            />
+          )}
+          {isRegister && (
             <p className="registration-email-note">
               Registration is limited to MU students. Use your @marwadiuniversity.ac.in email.
             </p>
           )}
-          <input
-            type="password"
-            placeholder="Password"
-            value={authForm.password}
-            onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-            minLength={authMode === 'register' ? 8 : undefined}
-            maxLength={authMode === 'register' ? 128 : undefined}
-            required
-          />
+          {!isForgotPassword && (
+            <input
+              type="password"
+              placeholder={isResetPassword ? 'New password' : 'Password'}
+              value={authForm.password}
+              onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+              minLength={isRegister || isResetPassword ? 8 : undefined}
+              maxLength={isRegister || isResetPassword ? 128 : undefined}
+              required
+            />
+          )}
+          {isResetPassword && (
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={authForm.passwordConfirmation}
+              onChange={(e) => setAuthForm({ ...authForm, passwordConfirmation: e.target.value })}
+              minLength={8}
+              maxLength={128}
+              required
+            />
+          )}
           <button type="submit" className="btn-submit">
-            {authMode === 'login' ? 'Login' : 'Register'}
+            {isRegister ? 'Register' : isForgotPassword ? 'Send reset link' : isResetPassword ? 'Reset password' : 'Login'}
           </button>
         </form>
-        {authMode === 'login' && needsEmailVerification && (
+        {isLogin && (
+          <button
+            type="button"
+            className="auth-mode-link"
+            onClick={() => {
+              setAuthMode('forgotPassword');
+              setNeedsEmailVerification(false);
+              setAuthMessage('');
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
+        {isLogin && needsEmailVerification && (
           <button type="button" className="btn-resend-verification" onClick={handleResendVerification}>
             Resend verification email
           </button>
         )}
         <div className="switch-mode">
-          {authMode === 'login' ? (
+          {isLogin || isForgotPassword || isResetPassword ? (
             <p>
-              No account?{' '}
-              <span onClick={() => {
-                setAuthMode('register');
-                setNeedsEmailVerification(false);
+              {isLogin ? 'No account? ' : 'Remembered your password? '}
+              <button type="button" className="auth-mode-link" onClick={() => {
+                setAuthMode('login');
                 setAuthMessage('');
-              }}>Register here</span>
+              }}>Login here</button>
+              {isLogin && (
+                <>
+                  {' '}
+                  <span aria-hidden="true">|</span>
+                  {' '}
+                  <button type="button" className="auth-mode-link" onClick={() => {
+                    setAuthMode('register');
+                    setNeedsEmailVerification(false);
+                    setAuthMessage('');
+                  }}>Register here</button>
+                </>
+              )}
             </p>
           ) : (
             <p>
-              Have an account? <span onClick={() => {
+              Have an account? <button type="button" className="auth-mode-link" onClick={() => {
                 setAuthMode('login');
                 setAuthMessage('');
-              }}>Login here</span>
+              }}>Login here</button>
             </p>
           )}
         </div>

@@ -97,6 +97,52 @@ test('keeps a successful login when browser storage rejects session writes', asy
   storageSpy.mockRestore();
 });
 
+test('lets a user request a password reset from the login modal', async () => {
+  axios.get.mockResolvedValue({ data: [] });
+  axios.post.mockResolvedValue({
+    data: { message: 'If an account exists for that MU email, a password reset link has been sent.' },
+  });
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
+  fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
+  fireEvent.change(screen.getByPlaceholderText('MU email (@marwadiuniversity.ac.in)'), {
+    target: { value: 'student@marwadiuniversity.ac.in' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+
+  expect(await screen.findByText(/if an account exists for that mu email/i)).toBeInTheDocument();
+  expect(axios.post).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/auth\/request-password-reset$/),
+    { email: 'student@marwadiuniversity.ac.in' }
+  );
+});
+
+test('opens the password reset form from a reset link and submits the new password', async () => {
+  const resetToken = 'a'.repeat(64);
+  window.history.replaceState({}, '', `/?resetPassword=${resetToken}`);
+  axios.get.mockResolvedValue({ data: [] });
+  axios.post.mockResolvedValue({ data: { message: 'Your password has been reset. You can now log in.' } });
+
+  render(<App />);
+
+  expect(await screen.findByRole('heading', { name: 'Reset password' })).toBeInTheDocument();
+  expect(window.location.search).toBe('');
+  fireEvent.change(screen.getByPlaceholderText('New password'), {
+    target: { value: 'new-strong-password' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('Confirm new password'), {
+    target: { value: 'new-strong-password' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
+
+  expect(await screen.findByText('Your password has been reset. You can now log in.')).toBeInTheDocument();
+  expect(axios.post).toHaveBeenCalledWith(
+    expect.stringMatching(/\/api\/auth\/reset-password$/),
+    { token: resetToken, password: 'new-strong-password' }
+  );
+});
+
 test('announces listing loading accessibly and shows responsive loading placeholders', () => {
   axios.get.mockReturnValue(new Promise(() => {}));
 

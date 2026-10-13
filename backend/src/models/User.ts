@@ -7,6 +7,9 @@ export interface IUser extends Document {
   emailVerificationTokenHash?: string;
   emailVerificationExpiresAt?: Date;
   emailVerificationSentAt?: Date;
+  passwordResetTokenHash?: string;
+  passwordResetExpiresAt?: Date;
+  passwordResetSentAt?: Date;
   password?: string;
   phone?: string;
   residencyType: 'hosteler' | 'outsider';
@@ -48,6 +51,18 @@ const UserSchema: Schema = new Schema(
       select: false,
     },
     emailVerificationSentAt: {
+      type: Date,
+      select: false,
+    },
+    passwordResetTokenHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    passwordResetSentAt: {
       type: Date,
       select: false,
     },

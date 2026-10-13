@@ -1742,6 +1742,28 @@ body {
   cursor: pointer;
 }
 
+.switch-mode {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.auth-mode-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #4f46e5;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auth-mode-link:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 3px;
+}
+
 .modal-content input,
 .modal-content textarea,
 .modal-content select {
@@ -2566,6 +2588,10 @@ body {
   border-color: #1e40af;
   color: #bfdbfe;
   background: #172554;
+}
+
+:root[data-theme="dark"] .auth-mode-link {
+  color: #a5b4fc;
 }
 
 :root[data-theme="dark"] .listing-refresh-error,

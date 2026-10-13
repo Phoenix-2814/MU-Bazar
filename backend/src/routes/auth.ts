@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
 import JWT_SECRET from '../config/jwt';
-import { sendVerificationEmail } from '../config/mailer';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../config/mailer';
 import { imageUpload, uploadImage } from '../config/imageStorage';
 import { authRateLimit, loginRateLimit } from '../middleware/rateLimit';
 
@@ -19,8 +19,10 @@ interface RegisterRequest extends Request {
 const UNIVERSITY_EMAIL_DOMAIN = '@marwadiuniversity.ac.in';
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+const PASSWORD_RESET_RESEND_COOLDOWN_MS = 60 * 1000;
 
-const hashVerificationToken = (token: string): string =>
+const hashToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
 
 const sendVerification = async (user: InstanceType<typeof User>): Promise<void> => {
@@ -33,7 +35,7 @@ const sendVerification = async (user: InstanceType<typeof User>): Promise<void> 
   }
 
   const token = randomBytes(32).toString('hex');
-  user.emailVerificationTokenHash = hashVerificationToken(token);
+  user.emailVerificationTokenHash = hashToken(token);
   user.emailVerificationExpiresAt = new Date(now.getTime() + VERIFICATION_TOKEN_TTL_MS);
   user.emailVerificationSentAt = now;
   await user.save();
@@ -46,6 +48,9 @@ const toSafeUser = (user: InstanceType<typeof User>) => {
   delete userObject.emailVerificationTokenHash;
   delete userObject.emailVerificationExpiresAt;
   delete userObject.emailVerificationSentAt;
+  delete userObject.passwordResetTokenHash;
+  delete userObject.passwordResetExpiresAt;
+  delete userObject.passwordResetSentAt;
   return userObject;
 };
 
@@ -286,7 +291,7 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response):
   try {
     const user = await User.findOneAndUpdate(
       {
-        emailVerificationTokenHash: hashVerificationToken(token),
+        emailVerificationTokenHash: hashToken(token),
         emailVerificationExpiresAt: { $gt: new Date() },
         emailVerified: false,
       },
@@ -310,6 +315,94 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response):
   } catch (err) {
     console.error('Email verification failed:', err);
     res.status(500).json({ message: 'Could not verify your email. Please try again.' });
+  }
+});
+
+router.post('/request-password-reset', authRateLimit, async (req: Request, res: Response): Promise<void> => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!/^[^\s@]+@marwadiuniversity\.ac\.in$/.test(email)) {
+    res.status(400).json({ message: 'Enter a valid MU email address.' });
+    return;
+  }
+
+  try {
+    const user = await User.findOne({ email }).select('+password +passwordResetSentAt');
+    if (user?.emailVerified && user.password) {
+      const now = new Date();
+      const recentlySent = user.passwordResetSentAt &&
+        now.getTime() - user.passwordResetSentAt.getTime() < PASSWORD_RESET_RESEND_COOLDOWN_MS;
+      if (!recentlySent) {
+        const resetToken = randomBytes(32).toString('hex');
+        user.passwordResetTokenHash = hashToken(resetToken);
+        user.passwordResetExpiresAt = new Date(now.getTime() + PASSWORD_RESET_TOKEN_TTL_MS);
+        user.passwordResetSentAt = now;
+        await user.save();
+
+        try {
+          await sendPasswordResetEmail({ email: user.email, token: resetToken });
+        } catch (err) {
+          console.error('Password reset email send failed:', err);
+        }
+      }
+    }
+
+    res.json({ message: 'If an account exists for that MU email, a password reset link has been sent.' });
+  } catch (err) {
+    console.error('Password reset request failed:', err);
+    res.status(500).json({ message: 'Could not process password reset request.' });
+  }
+});
+
+router.post('/reset-password', authRateLimit, async (req: Request, res: Response): Promise<void> => {
+  const { token, password } = req.body || {};
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
+    res.status(400).json({ message: 'Invalid or expired password reset link.' });
+    return;
+  }
+  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
+    return;
+  }
+
+  try {
+    const tokenHash = hashToken(token);
+    const now = new Date();
+    const userWithToken = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: now },
+      emailVerified: true,
+    });
+    if (!userWithToken) {
+      res.status(400).json({ message: 'Invalid or expired password reset link.' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.findOneAndUpdate(
+      {
+        _id: userWithToken._id,
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { $gt: new Date() },
+      },
+      {
+        $set: { password: hashedPassword },
+        $unset: {
+          passwordResetTokenHash: 1,
+          passwordResetExpiresAt: 1,
+          passwordResetSentAt: 1,
+        },
+      }
+    );
+
+    if (!user) {
+      res.status(400).json({ message: 'Invalid or expired password reset link.' });
+      return;
+    }
+
+    res.json({ message: 'Your password has been reset. You can now log in.' });
+  } catch (err) {
+    console.error('Password reset failed:', err);
+    res.status(500).json({ message: 'Could not reset your password. Please try again.' });
   }
 });
 

@@ -12,7 +12,7 @@ Set these environment variables in the backend host:
 - `PUBLIC_API_URL` with the public HTTPS API origin used to build uploaded image URLs
 - `IMAGEKIT_PRIVATE_KEY` for persistent image uploads through ImageKit
 - `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, `EMAIL_FROM`, and optionally `EMAIL_FROM_NAME` for Brevo HTTPS email delivery
-- `FRONTEND_URL` as the frontend origin used for the verification link
+- `FRONTEND_URL` as the frontend origin used for verification and password-reset links
 - `GOOGLE_CLIENT_ID` as the Google OAuth 2.0 web client ID used to verify Google ID tokens
 - `ADMIN_EMAILS` as a comma-separated allowlist of verified MU Bazar account emails allowed to review listing reports
 - `TRUST_PROXY_HOPS` (optional) as the number of reverse proxies in front of the API; defaults to `1` in production (Render) and `0` locally. Rate limiting uses it to read the real client IP
@@ -22,6 +22,7 @@ Auth endpoints are rate limited per client IP (100 requests per 15 minutes), and
 backend restarts and are not shared across multiple instances.
 
 Registration creates an unverified account and sends a single-use link that expires after 24 hours.
+Verified accounts can request a password reset link, which expires after one hour and can only be used once.
 Verify the sender address in Brevo before enabling registration. Brevo sends over HTTPS, which works
 with Render's free-service network restrictions; free Render services cannot send outbound traffic
 on SMTP ports 25, 465, or 587. For local development, `EMAIL_PROVIDER=smtp` continues to use the
