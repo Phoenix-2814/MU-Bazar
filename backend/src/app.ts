@@ -4,7 +4,6 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import mongoose from 'mongoose';
-import mongoose from 'mongoose';
 import { clientOrigins } from './config/urls';
 import { apiRateLimit, chatRateLimit, listingReadRateLimit } from './middleware/rateLimit';
 import { logError, logInfo } from './config/logger';

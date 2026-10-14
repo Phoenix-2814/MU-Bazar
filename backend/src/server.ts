@@ -187,7 +187,7 @@ const startServer = async (): Promise<void> => {
   if (sharedRedisEnabled) await connectSharedRedis();
   if (socketRedisAdapter) io.adapter(socketRedisAdapter);
   await mongoose.connect(MONGO_URI);
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(Number(PORT), '0.0.0.0', () => {
     logInfo('server_listening', { port: Number(PORT), sharedRateLimits: sharedRedisEnabled });
   });
 };

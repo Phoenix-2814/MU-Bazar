@@ -68,10 +68,12 @@ export const consumeSocketMessageLimit = async (userId: string, limit: number): 
 };
 
 export const disconnectSharedRedis = async (): Promise<void> => {
-  const clients = [rateLimitClient, socketPubClient, socketSubClient].filter(
-    (client): client is ReturnType<typeof createClient> => client !== undefined
-  );
-  await Promise.all(clients.map(async (client) => {
-    if (client.isOpen) await client.quit();
-  }));
+  const disconnect = async (client?: { isOpen: boolean; quit: () => Promise<unknown> }): Promise<void> => {
+    if (client?.isOpen) await client.quit();
+  };
+  await Promise.all([
+    disconnect(rateLimitClient),
+    disconnect(socketPubClient),
+    disconnect(socketSubClient),
+  ]);
 };
