@@ -1,8 +1,9 @@
+import { vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import AdminReports from './AdminReports';
 
-jest.mock('axios');
+vi.mock('axios');
 
 test('lets an admin resolve a report with a review note', async () => {
   axios.get.mockResolvedValue({

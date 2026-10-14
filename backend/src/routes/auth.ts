@@ -6,8 +6,9 @@ import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
 import JWT_SECRET from '../config/jwt';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../config/mailer';
-import { imageUpload, uploadImage } from '../config/imageStorage';
-import { authRateLimit, loginRateLimit } from '../middleware/rateLimit';
+import { imageUpload, uploadImage, validateImageContent } from '../config/imageStorage';
+import { authRateLimit, loginRateLimit, uploadRateLimit } from '../middleware/rateLimit';
+import { logError } from '../config/logger';
 
 const router: Router = express.Router();
 const googleClient = new OAuth2Client();
@@ -141,14 +142,14 @@ router.post('/google', authRateLimit, async (req: Request, res: Response): Promi
       return;
     }
 
-    const token = jwt.sign({ id: user._id.toString(), emailVerified: true }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: toSafeUser(user) });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
       res.status(409).json({ message: 'An account already exists for this Google email. Please sign in.' });
       return;
     }
-    console.error('Google authentication failed:', err);
+    logError('google_auth_failed', err);
     res.status(401).json({ message: 'Google sign-in failed. Please try again.' });
   }
 });
@@ -157,7 +158,9 @@ router.post('/google', authRateLimit, async (req: Request, res: Response): Promi
 router.post(
   '/register',
   authRateLimit,
+  uploadRateLimit,
   imageUpload.single('profilePic'),
+  validateImageContent,
   async (req: RegisterRequest, res: Response): Promise<void> => {
     try {
       const {
@@ -233,7 +236,7 @@ router.post(
             res.status(429).json({ message: err.message });
             return;
           }
-          console.error('Verification email resend failed:', err);
+          logError('verification_email_resend_failed', err);
           res.status(503).json({ message: 'Could not send verification email. Please try again later.' });
         }
         return;
@@ -264,7 +267,7 @@ router.post(
       try {
         await sendVerification(newUser);
       } catch (err) {
-        console.error('Verification email send failed:', err);
+        logError('verification_email_send_failed', err);
         res.status(503).json({
           message: 'Account created, but the verification email could not be sent. Please try again later.',
         });
@@ -275,8 +278,8 @@ router.post(
         message: 'Account created. Check your MU email for a verification link before logging in. Check your spam.',
       });
     } catch (err: any) {
-      console.error('Registration Error:', err);
-      res.status(500).json({ message: err.message || 'Server error during registration.' });
+      logError('registration_failed', err);
+      res.status(500).json({ message: 'Could not complete registration. Please try again later.' });
     }
   }
 );
@@ -310,10 +313,10 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response):
       return;
     }
 
-    const authToken = jwt.sign({ id: user._id, emailVerified: true }, JWT_SECRET, { expiresIn: '7d' });
+    const authToken = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token: authToken, user: toSafeUser(user) });
   } catch (err) {
-    console.error('Email verification failed:', err);
+    logError('email_verification_failed', err);
     res.status(500).json({ message: 'Could not verify your email. Please try again.' });
   }
 });
@@ -341,14 +344,14 @@ router.post('/request-password-reset', authRateLimit, async (req: Request, res: 
         try {
           await sendPasswordResetEmail({ email: user.email, token: resetToken });
         } catch (err) {
-          console.error('Password reset email send failed:', err);
+          logError('password_reset_email_send_failed', err);
         }
       }
     }
 
     res.json({ message: 'If an account exists for that MU email, a password reset link has been sent.' });
   } catch (err) {
-    console.error('Password reset request failed:', err);
+    logError('password_reset_request_failed', err);
     res.status(500).json({ message: 'Could not process password reset request.' });
   }
 });
@@ -386,6 +389,7 @@ router.post('/reset-password', authRateLimit, async (req: Request, res: Response
       },
       {
         $set: { password: hashedPassword },
+        $inc: { tokenVersion: 1 },
         $unset: {
           passwordResetTokenHash: 1,
           passwordResetExpiresAt: 1,
@@ -401,7 +405,7 @@ router.post('/reset-password', authRateLimit, async (req: Request, res: Response
 
     res.json({ message: 'Your password has been reset. You can now log in.' });
   } catch (err) {
-    console.error('Password reset failed:', err);
+    logError('password_reset_failed', err);
     res.status(500).json({ message: 'Could not reset your password. Please try again.' });
   }
 });
@@ -423,7 +427,7 @@ router.post('/resend-verification', authRateLimit, async (req: Request, res: Res
           res.status(429).json({ message: err.message });
           return;
         }
-        console.error('Verification email resend failed:', err);
+        logError('verification_email_resend_failed', err);
         res.status(503).json({ message: 'Could not send verification email. Please try again later.' });
         return;
       }
@@ -431,7 +435,7 @@ router.post('/resend-verification', authRateLimit, async (req: Request, res: Res
 
     res.json({ message: 'If an unverified account exists for that email, a verification link has been sent. Check your spam.' });
   } catch (err) {
-    console.error('Verification email request failed:', err);
+    logError('verification_email_request_failed', err);
     res.status(500).json({ message: 'Could not process verification request.' });
   }
 });
@@ -480,12 +484,12 @@ router.post('/login', authRateLimit, loginRateLimit, async (req: Request, res: R
       return;
     }
 
-    const token = jwt.sign({ id: user._id, emailVerified: true }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
 
     res.json({ token, user: toSafeUser(user) });
   } catch (err: any) {
-    console.error('Login Error:', err);
-    res.status(500).json({ message: err.message || 'Server error during login.' });
+    logError('login_failed', err);
+    res.status(500).json({ message: 'Could not log in right now. Please try again later.' });
   }
 });
 

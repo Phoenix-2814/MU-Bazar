@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import './ChatModal.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL ||
-  (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
 const QUICK_MESSAGES = ['Hi', 'What is the final price?', 'Can you lower the price?'];
 
 function getId(value) {
@@ -24,8 +24,13 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const chatBodyRef = useRef(null);
+  const preserveScrollRef = useRef(null);
+  const skipNextAutoScrollRef = useRef(false);
   const socketRef = useRef(null);
   const currentUserId = getId(currentUser);
 
@@ -61,6 +66,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
     setError('');
     setLoading(true);
     setMessages([]);
+    setHasOlderMessages(false);
 
     axios
       .get(`${API_BASE_URL}/api/chat/conversations`, {
@@ -96,10 +102,12 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
 
     axios
       .get(`${API_BASE_URL}/api/chat/messages/${activeConversationId}`, {
+        params: { limit: 50, offset: 0 },
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
         if (!cancelled) {
+          setHasOlderMessages(res.data.length === 50);
           setMessages((currentMessages) => {
             const historyIds = new Set(res.data.map((message) => message._id));
             return sortMessagesByTime([
@@ -118,7 +126,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
         if (!cancelled) setLoading(false);
       });
 
-    const socket = io(API_BASE_URL, { autoConnect: false, auth: { token } });
+    const socket = io(API_BASE_URL, { autoConnect: false, auth: { token }, transports: ['websocket'] });
     socketRef.current = socket;
 
     const joinConversation = () => {
@@ -174,8 +182,45 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
   }, [activeConversationId, currentUserId, onUnreadCountChange, token]);
 
   useEffect(() => {
+    if (skipNextAutoScrollRef.current) {
+      skipNextAutoScrollRef.current = false;
+      return;
+    }
     messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
+
+  useLayoutEffect(() => {
+    const previous = preserveScrollRef.current;
+    if (!previous || !chatBodyRef.current) return;
+    const body = chatBodyRef.current;
+    body.scrollTop = previous.scrollTop + body.scrollHeight - previous.scrollHeight;
+    preserveScrollRef.current = null;
+    skipNextAutoScrollRef.current = true;
+  }, [messages]);
+
+  const loadOlderMessages = async () => {
+    if (loadingOlderMessages || !hasOlderMessages || !activeConversationId) return;
+    const body = chatBodyRef.current;
+    if (body) preserveScrollRef.current = { scrollHeight: body.scrollHeight, scrollTop: body.scrollTop };
+    setLoadingOlderMessages(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/chat/messages/${activeConversationId}`, {
+        params: { limit: 50, offset: messages.length },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const olderMessages = response.data || [];
+      setMessages((current) => sortMessagesByTime([
+        ...olderMessages,
+        ...current.filter((message) => !olderMessages.some((older) => older._id === message._id)),
+      ]));
+      setHasOlderMessages(olderMessages.length === 50);
+    } catch (err) {
+      preserveScrollRef.current = null;
+      setError(err.response?.data?.message || 'Could not load earlier messages.');
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  };
 
   const handleSendMessage = (event) => {
     event.preventDefault();
@@ -290,8 +335,13 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
           </div>
         ) : (
           <>
-            <div className="chat-body" aria-live="polite">
+            <div className="chat-body" aria-live="polite" ref={chatBodyRef}>
               {loading && <p className="chat-empty-state">Loading messages...</p>}
+              {!loading && hasOlderMessages && (
+                <button className="chat-load-older" type="button" onClick={loadOlderMessages} disabled={loadingOlderMessages}>
+                  {loadingOlderMessages ? 'Loading earlier messages…' : 'Load earlier messages'}
+                </button>
+              )}
               {!loading && messages.length === 0 && (
                 <p className="chat-empty-state">Say hello to start the conversation.</p>
               )}

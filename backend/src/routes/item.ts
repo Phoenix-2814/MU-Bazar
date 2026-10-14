@@ -3,13 +3,16 @@ import mongoose, { SortOrder } from 'mongoose';
 import Listing from '../models/Listing';
 import User from '../models/User';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { deleteImages, imageUpload, uploadImage } from '../config/imageStorage';
+import { deleteImages, imageUpload, uploadImage, validateImageContent } from '../config/imageStorage';
+import { uploadRateLimit } from '../middleware/rateLimit';
+import { logError } from '../config/logger';
 
 const VALID_CATEGORIES = new Set(['BOOKS', 'ELECTRONICS', 'CLOTHING', 'HOSTEL_ESSENTIALS', 'OTHER']);
 const VALID_CONDITIONS = new Set(['NEW', 'USED_LIKE_NEW', 'USED_GOOD', 'USED_FAIR']);
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 5000;
 const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
 const MAX_SEARCH_TERMS = 10;
 const CATEGORY_LABELS: Record<string, string> = {
   BOOKS: 'Books & Notes',
@@ -121,7 +124,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (req.query.limit === undefined) {
       const items = await Listing.find(filter)
         .populate('seller', 'name residencyType hostelName hostelBlock profilePic')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .limit(DEFAULT_PAGE_SIZE);
       res.json(items);
       return;
     }
@@ -177,6 +181,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     const search = queryString(req.query.q);
     if (search) {
+      if (search.length > 200) {
+        res.status(400).json({ message: 'Search must be 200 characters or fewer.' });
+        return;
+      }
       conditions.push(...(await buildSearchConditions(search)));
     }
 
@@ -195,7 +203,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     res.json({ items, total, hasMore: offset + items.length < total });
   } catch (err: any) {
-    console.error('Error fetching items:', err);
+    logError('listing_search_failed', err);
     res.status(500).json({ message: 'Failed to fetch items' });
   }
 });
@@ -213,7 +221,7 @@ router.get('/mine', authenticateToken, async (req: AuthRequest, res: Response): 
       .sort({ updatedAt: -1 });
     res.json(items);
   } catch (err) {
-    console.error('Error fetching your products:', err);
+    logError('seller_listing_list_failed', err);
     res.status(500).json({ message: 'Failed to fetch your products.' });
   }
 });
@@ -237,7 +245,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
     res.json(item);
   } catch (err) {
-    console.error('Error fetching item by id:', err);
+    logError('listing_detail_failed', err);
     res.status(500).json({ message: 'Failed to fetch listing details.' });
   }
 });
@@ -246,7 +254,9 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post(
   '/',
   authenticateToken,
+  uploadRateLimit,
   imageUpload.array('images', 5),
+  validateImageContent,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { title, description, price, category, condition } = req.body;
@@ -281,8 +291,8 @@ router.post(
 
       res.status(201).json({ message: 'Item created successfully', item: newListing });
     } catch (err: any) {
-      console.error('Error posting item:', err);
-      res.status(500).json({ message: err.message || 'Failed to post item' });
+      logError('listing_create_failed', err);
+      res.status(500).json({ message: 'Failed to create listing.' });
     }
   }
 );
@@ -291,7 +301,9 @@ router.post(
 router.put(
   '/:id',
   authenticateToken,
+  uploadRateLimit,
   imageUpload.array('images', 5),
+  validateImageContent,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id || req.user?._id || req.user?.userId;
@@ -386,8 +398,8 @@ router.put(
         void deleteImages(listing.images.filter((url) => !updatedListing.images.includes(url)));
       }
     } catch (err: any) {
-      console.error('Error modifying item:', err);
-      res.status(500).json({ message: err.message || 'Failed to update item' });
+      logError('listing_update_failed', err);
+      res.status(500).json({ message: 'Failed to update listing.' });
     }
   }
 );
@@ -422,8 +434,8 @@ router.patch(
 
       res.json({ message: 'Item status updated', isSold: listing.isSold, item: listing });
     } catch (err: any) {
-      console.error('Error toggling sold state:', err);
-      res.status(500).json({ message: err.message || 'Failed to update status' });
+      logError('listing_sold_status_failed', err);
+      res.status(500).json({ message: 'Failed to update listing status.' });
     }
   }
 );
@@ -447,7 +459,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
     res.json({ message: 'Product deleted successfully.' });
     void deleteImages(listing.images);
   } catch (err) {
-    console.error('Error deleting product:', err);
+    logError('listing_delete_failed', err);
     res.status(500).json({ message: 'Failed to delete product.' });
   }
 });

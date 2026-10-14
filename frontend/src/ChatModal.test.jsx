@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import ChatModal from './ChatModal';
@@ -5,19 +6,19 @@ import ChatModal from './ChatModal';
 const mockSocketHandlers = {};
 let mockSocket;
 
-jest.mock('axios');
-jest.mock('socket.io-client', () => ({
+vi.mock('axios');
+vi.mock('socket.io-client', () => ({
   io: () => {
     const socket = {
       connected: true,
-      on: jest.fn((event, handler) => {
+      on: vi.fn((event, handler) => {
         mockSocketHandlers[event] = handler;
       }),
-      off: jest.fn(),
-      emit: jest.fn(),
-      timeout: jest.fn(() => socket),
-      connect: jest.fn(),
-      disconnect: jest.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      timeout: vi.fn(() => socket),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
     };
     mockSocket = socket;
     return socket;
@@ -56,8 +57,8 @@ test('shows the product the buyer contacted the seller about', async () => {
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 
@@ -114,8 +115,8 @@ test('updates a sent message to seen when the other user reads the conversation'
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 
@@ -158,8 +159,8 @@ test('keeps realtime messages received while message history is loading', async 
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 
@@ -219,8 +220,8 @@ test('orders realtime messages by creation time when socket events arrive out of
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
   await screen.findByRole('textbox', { name: 'Message' });
@@ -276,8 +277,8 @@ test('keeps the message draft and reports a failed send acknowledgement', async 
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 
@@ -321,8 +322,8 @@ test('clears a transient connection error after the socket reconnects', async ()
       conversationId="conversation-1"
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 
@@ -357,8 +358,8 @@ test('labels conversations whose listing was deleted', async () => {
     <ChatModal
       currentUser={{ _id: 'seller-1' }}
       token="test-token"
-      onUnreadCountChange={jest.fn()}
-      onClose={jest.fn()}
+      onUnreadCountChange={vi.fn()}
+      onClose={vi.fn()}
     />
   );
 

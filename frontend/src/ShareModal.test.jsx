@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ShareModal from './components/ShareModal';
@@ -11,7 +12,7 @@ const sampleItem = {
 
 describe('ShareModal component', () => {
   test('renders the share modal with item info and shareable link', () => {
-    const handleClose = jest.fn();
+    const handleClose = vi.fn();
     render(<ShareModal item={sampleItem} onClose={handleClose} isNewPost={false} />);
 
     expect(screen.getByRole('heading', { name: /share this product/i })).toBeInTheDocument();
@@ -29,7 +30,7 @@ describe('ShareModal component', () => {
   });
 
   test('displays congratulatory message when shown right after posting a new product', () => {
-    const handleClose = jest.fn();
+    const handleClose = vi.fn();
     render(<ShareModal item={sampleItem} onClose={handleClose} isNewPost={true} />);
 
     expect(screen.getByRole('heading', { name: /your product is live!/i })).toBeInTheDocument();
@@ -38,7 +39,7 @@ describe('ShareModal component', () => {
   });
 
   test('calls onClose when close cross button or done button is clicked', () => {
-    const handleClose = jest.fn();
+    const handleClose = vi.fn();
     render(<ShareModal item={sampleItem} onClose={handleClose} isNewPost={true} />);
 
     fireEvent.click(screen.getByLabelText(/close share popup/i));
@@ -51,11 +52,11 @@ describe('ShareModal component', () => {
   test('copies link when copy button is clicked', async () => {
     Object.assign(navigator, {
       clipboard: {
-        writeText: jest.fn().mockImplementation(() => Promise.resolve()),
+        writeText: vi.fn().mockImplementation(() => Promise.resolve()),
       },
     });
 
-    render(<ShareModal item={sampleItem} onClose={jest.fn()} isNewPost={false} />);
+    render(<ShareModal item={sampleItem} onClose={vi.fn()} isNewPost={false} />);
 
     const copyBtn = screen.getByRole('button', { name: /copy link/i });
     fireEvent.click(copyBtn);

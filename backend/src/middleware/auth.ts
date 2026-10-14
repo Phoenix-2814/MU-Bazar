@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import JWT_SECRET from '../config/jwt';
 import User from '../models/User';
+import { logError } from '../config/logger';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -26,7 +27,7 @@ export const authenticateToken = async (
       res.status(403).json({ message: 'Verify your email and log in again.' });
       return;
     }
-    const user = await User.findById(decoded.id).select('isSuspended');
+    const user = await User.findById(decoded.id).select('isSuspended tokenVersion');
     if (!user) {
       res.status(401).json({ message: 'Account not found.' });
       return;
@@ -38,6 +39,10 @@ export const authenticateToken = async (
       });
       return;
     }
+    if ((decoded.tokenVersion ?? 0) !== user.tokenVersion) {
+      res.status(401).json({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Please log in again.' });
+      return;
+    }
     req.user = decoded;
     next();
   } catch (err) {
@@ -45,7 +50,7 @@ export const authenticateToken = async (
       res.status(403).json({ message: 'Invalid or expired token.' });
       return;
     }
-    console.error('Failed to authenticate user:', err);
+    logError('auth_middleware_failure', err);
     res.status(500).json({ message: 'Could not authenticate this request.' });
   }
 };

@@ -8,10 +8,11 @@ import { Message, Conversation } from './models/Chat';
 import User from './models/User';
 import JWT_SECRET from './config/jwt';
 import { clientOrigins, validateDeploymentConfig } from './config/urls';
+import { connectSharedRedis, consumeSocketMessageLimit, disconnectSharedRedis, sharedRedisEnabled, socketRedisAdapter } from './config/redis';
+import { logError, logInfo } from './config/logger';
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/mubazar';
-
 validateDeploymentConfig();
 if (process.env.NODE_ENV === 'production' && !process.env.MONGO_URI) {
   throw new Error('MONGO_URI must be configured in production.');
@@ -22,6 +23,8 @@ const server = http.createServer(app);
 
 // Initialize Socket.io instance
 const io = new Server(server, {
+  maxHttpBufferSize: 64 * 1024,
+  perMessageDeflate: false,
   cors: {
     origin: clientOrigins,
   },
@@ -42,9 +45,13 @@ io.use(async (socket, next) => {
       return;
     }
 
-    const user = await User.findById(decoded.id).select('isSuspended');
+    const user = await User.findById(decoded.id).select('isSuspended tokenVersion');
     if (!user || user.isSuspended) {
       next(new Error(user ? 'This account is suspended.' : 'Account not found.'));
+      return;
+    }
+    if ((decoded.tokenVersion ?? 0) !== user.tokenVersion) {
+      next(new Error('Session expired. Please sign in again.'));
       return;
     }
 
@@ -52,7 +59,7 @@ io.use(async (socket, next) => {
     next();
   } catch (err) {
     if (!(err instanceof jwt.JsonWebTokenError)) {
-      console.error('Failed to authenticate chat connection:', err);
+      logError('socket_authentication_failed', err);
       next(new Error('Could not authenticate chat connection.'));
       return;
     }
@@ -62,8 +69,24 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   socket.join(`user:${socket.data.userId}`);
+  const configuredMessageLimit = Number(process.env.CHAT_MESSAGES_PER_MINUTE || 30);
+  const maxMessagesPerWindow = Number.isInteger(configuredMessageLimit) && configuredMessageLimit > 0
+    ? Math.min(configuredMessageLimit, 1000)
+    : 30;
+  let roomJoinsThisMinute = 0;
+  let roomJoinWindowStartedAt = Date.now();
 
   socket.on('join_room', async (conversationId: string, acknowledge?: (result: { error?: string }) => void) => {
+    const now = Date.now();
+    if (now - roomJoinWindowStartedAt >= 60_000) {
+      roomJoinWindowStartedAt = now;
+      roomJoinsThisMinute = 0;
+    }
+    if (roomJoinsThisMinute >= 60) {
+      acknowledge?.({ error: 'Too many chat room requests. Please wait and try again.' });
+      return;
+    }
+    roomJoinsThisMinute += 1;
     try {
       if (!mongoose.isValidObjectId(conversationId)) {
         acknowledge?.({ error: 'Invalid conversation ID.' });
@@ -82,7 +105,7 @@ io.on('connection', (socket) => {
       socket.join(conversationId);
       acknowledge?.({});
     } catch (err) {
-      console.error('Socket room join error:', err);
+      logError('socket_room_join_failed', err);
       acknowledge?.({ error: 'Failed to join conversation.' });
     }
   });
@@ -97,6 +120,7 @@ io.on('connection', (socket) => {
       data: { conversationId?: string; text?: string },
       acknowledge?: (result: { error?: string }) => void
     ) => {
+      const userId = String(socket.data.userId);
       const conversationId = data?.conversationId;
       const text = typeof data?.text === 'string' ? data.text.trim() : '';
       if (!conversationId || !mongoose.isValidObjectId(conversationId)) {
@@ -105,6 +129,19 @@ io.on('connection', (socket) => {
       }
       if (!text || text.length > 2000) {
         acknowledge?.({ error: 'Messages must be between 1 and 2000 characters.' });
+        return;
+      }
+
+      let withinMessageLimit = false;
+      try {
+        withinMessageLimit = await consumeSocketMessageLimit(userId, maxMessagesPerWindow);
+      } catch (err) {
+        logError('socket_rate_limit_failed', err);
+        acknowledge?.({ error: 'Chat is temporarily unavailable. Please try again shortly.' });
+        return;
+      }
+      if (!withinMessageLimit) {
+        acknowledge?.({ error: 'You are sending messages too quickly. Please try again in a minute.' });
         return;
       }
 
@@ -123,7 +160,6 @@ io.on('connection', (socket) => {
           sender: socket.data.userId,
           text,
         });
-
         await Conversation.findByIdAndUpdate(conversationId, {
           lastMessage: text,
           updatedAt: new Date(),
@@ -139,7 +175,7 @@ io.on('connection', (socket) => {
         });
         acknowledge?.({});
       } catch (err) {
-        console.error('Socket message handling error:', err);
+        logError('socket_message_failed', err);
         acknowledge?.({ error: 'Failed to send message.' });
       }
     }
@@ -147,14 +183,32 @@ io.on('connection', (socket) => {
 });
 
 // Connect to MongoDB and start listening
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    console.log('MongoDB Connected successfully.');
-    server.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Database connection failed:', err);
+const startServer = async (): Promise<void> => {
+  if (sharedRedisEnabled) await connectSharedRedis();
+  if (socketRedisAdapter) io.adapter(socketRedisAdapter);
+  await mongoose.connect(MONGO_URI);
+  server.listen(PORT, '0.0.0.0', () => {
+    logInfo('server_listening', { port: Number(PORT), sharedRateLimits: sharedRedisEnabled });
   });
+};
+
+void startServer().catch((err: unknown) => {
+  logError('server_start_failed', err);
+  void Promise.all([mongoose.disconnect(), disconnectSharedRedis()]).finally(() => {
+    process.exitCode = 1;
+  });
+});
+
+let shuttingDown = false;
+const shutdown = (signal: string): void => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logInfo('shutdown_started', { signal });
+  io.close(() => {
+    void Promise.all([mongoose.disconnect(), disconnectSharedRedis()]).finally(() => process.exit(0));
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -5,6 +5,7 @@ import Listing from '../models/Listing';
 import User from '../models/User';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { deleteImages } from '../config/imageStorage';
+import { logError } from '../config/logger';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.get('/admin/access', authenticateToken, async (req: AuthRequest, res: Res
   try {
     res.json({ isAdmin: await isAdmin(userId) });
   } catch (err) {
-    console.error('Failed to check report-admin access:', err);
+    logError('admin_access_check_failed', err);
     res.status(500).json({ message: 'Could not check report-admin access.' });
   }
 });
@@ -79,7 +80,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Pro
       res.status(409).json({ message: 'You have already reported this listing.' });
       return;
     }
-    console.error('Failed to submit listing report:', err);
+    logError('listing_report_create_failed', err);
     res.status(500).json({ message: 'Could not submit the report.' });
   }
 });
@@ -152,7 +153,7 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
       },
     });
   } catch (err) {
-    console.error('Failed to fetch listing reports:', err);
+    logError('admin_report_list_failed', err);
     res.status(500).json({ message: 'Could not fetch listing reports.' });
   }
 });
@@ -260,7 +261,7 @@ router.get('/admin/users', authenticateToken, async (req: AuthRequest, res: Resp
       counts: { all: allCount, new: newCount, suspended: suspendedCount },
     });
   } catch (err) {
-    console.error('Failed to fetch admin user directory:', err);
+    logError('admin_user_list_failed', err);
     res.status(500).json({ message: 'Could not fetch users.' });
   }
 });
@@ -319,7 +320,7 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
       },
     });
   } catch (err) {
-    console.error('Failed to fetch admin user profile:', err);
+    logError('admin_user_detail_failed', err);
     res.status(500).json({ message: 'Could not fetch this user profile.' });
   }
 });
@@ -375,6 +376,7 @@ router.patch('/admin/users/:userId/status', authenticateToken, async (req: AuthR
           suspendedAt: new Date(),
           suspendedBy: adminId,
         },
+        $inc: { tokenVersion: 1 },
       }
       : {
         $set: { isSuspended: false, suspensionReason: '' },
@@ -406,7 +408,7 @@ router.patch('/admin/users/:userId/status', authenticateToken, async (req: AuthR
       user: updatedUser,
     });
   } catch (err) {
-    console.error('Failed to update admin user status:', err);
+    logError('admin_user_status_update_failed', err);
     res.status(500).json({ message: 'Could not update user status.' });
   }
 });
@@ -464,7 +466,7 @@ router.patch(
         listing,
       });
     } catch (err) {
-      console.error('Failed to change listing visibility:', err);
+      logError('admin_listing_visibility_update_failed', err);
       res.status(500).json({ message: 'Could not update listing visibility.' });
     }
   }
@@ -502,7 +504,7 @@ router.delete(
       res.json({ message: 'Listing deleted.', listingId: listing._id });
       void deleteImages(listing.images);
     } catch (err) {
-      console.error('Failed to delete listing as admin:', err);
+      logError('admin_listing_delete_failed', err);
       res.status(500).json({ message: 'Could not delete this listing.' });
     }
   }
@@ -556,7 +558,7 @@ router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res
     }
     res.json(report);
   } catch (err) {
-    console.error('Failed to update listing report:', err);
+    logError('admin_report_update_failed', err);
     res.status(500).json({ message: 'Could not update the report.' });
   }
 });

@@ -1,8 +1,9 @@
+import { vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import AdminUsers from './AdminUsers';
 
-jest.mock('axios');
+vi.mock('axios');
 
 const userRecord = {
   _id: 'user-1',
@@ -43,7 +44,7 @@ const userListResponse = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 test('filters the user directory and ranks most active sellers', async () => {
@@ -128,7 +129,7 @@ test('confirms before permanently deleting a user listing', async () => {
       : Promise.resolve({ data: userListResponse })
   ));
   axios.delete.mockResolvedValue({ data: { message: 'Listing deleted.' } });
-  const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
   render(<AdminUsers token="admin-token" />);
   fireEvent.click(await screen.findByRole('button', { name: 'Review profile' }));

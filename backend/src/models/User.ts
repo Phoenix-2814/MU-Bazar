@@ -18,6 +18,7 @@ export interface IUser extends Document {
   roomNumber?: string;
   profilePic?: string;
   isSuspended: boolean;
+  tokenVersion: number;
   suspensionReason?: string;
   suspendedAt?: Date;
   suspendedBy?: mongoose.Types.ObjectId;
@@ -105,6 +106,7 @@ const UserSchema: Schema = new Schema(
       default: false,
       required: true,
     },
+    tokenVersion: { type: Number, default: 0, required: true, min: 0 },
     suspensionReason: {
       type: String,
       default: '',

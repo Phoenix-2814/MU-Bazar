@@ -628,7 +628,7 @@ function App() {
     window.addEventListener('focus', refreshUnreadCount);
     document.addEventListener('visibilitychange', refreshUnreadWhenVisible);
 
-    const socket = io(API_BASE_URL, { autoConnect: false, auth: { token } });
+    const socket = io(API_BASE_URL, { autoConnect: false, auth: { token }, transports: ['websocket'] });
     socket.on('user_message', (messageEvent = {}) => refreshUnreadCount(true, messageEvent));
     socket.on('connect_error', (err) => {
       if (!cancelled) console.error('Chat notification connection failed:', err.message);

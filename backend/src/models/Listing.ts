@@ -29,4 +29,8 @@ const ListingSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+ListingSchema.index({ isHidden: 1, isSold: 1, createdAt: -1 });
+ListingSchema.index({ seller: 1, updatedAt: -1 });
+ListingSchema.index({ category: 1, price: 1, createdAt: -1 });
+
 export default mongoose.model<IListing>('Listing', ListingSchema);

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL ||
-  (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000');
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
 
 const REPORT_REASONS = [
   { value: 'scam', label: 'Suspected scam or fraud' },

@@ -1,7 +1,9 @@
 import express, { Request, Response, Router } from 'express';
 import User from '../models/User';
 import authMiddleware from '../middleware/auth';
-import { deleteImages, imageUpload, uploadImage } from '../config/imageStorage';
+import { deleteImages, imageUpload, uploadImage, validateImageContent } from '../config/imageStorage';
+import { uploadRateLimit } from '../middleware/rateLimit';
+import { logError } from '../config/logger';
 
 const router: Router = express.Router();
 
@@ -17,7 +19,9 @@ interface AuthRequest extends Request {
 router.put(
   '/profile',
   authMiddleware,
+  uploadRateLimit,
   imageUpload.single('profilePic'),
+  validateImageContent,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { name, phone, residencyType, hostelName, hostelBlock, roomNumber } = req.body || {};
@@ -111,7 +115,7 @@ router.put(
         void deleteImages([previousProfilePic]);
       }
     } catch (err) {
-      console.error('Error updating profile:', err);
+      logError('profile_update_failed', err);
       res.status(500).json({ message: 'Server error while updating profile' });
     }
   }

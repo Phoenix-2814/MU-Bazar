@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { Conversation, Message } from '../models/Chat';
 import Listing from '../models/Listing';
+import { logError } from '../config/logger';
 
 const router = express.Router();
+const MAX_MESSAGE_PAGE_SIZE = 100;
 
 router.post('/conversation', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const buyerId = req.user?.id;
@@ -54,7 +56,7 @@ router.post('/conversation', authenticateToken, async (req: AuthRequest, res: Re
     ]);
     res.status(200).json(conversation);
   } catch (err) {
-    console.error('Error creating conversation:', err);
+    logError('conversation_create_failed', err);
     res.status(500).json({ message: 'Failed to create conversation.' });
   }
 });
@@ -70,11 +72,12 @@ router.get('/conversations', authenticateToken, async (req: AuthRequest, res: Re
     const conversations = await Conversation.find({ members: userId })
       .populate('members', 'name profilePic')
       .populate('itemId', 'title price images')
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .limit(100);
 
     res.json(conversations);
   } catch (err) {
-    console.error('Error fetching conversations:', err);
+    logError('conversation_list_failed', err);
     res.status(500).json({ message: 'Failed to fetch conversations.' });
   }
 });
@@ -95,7 +98,7 @@ router.get('/unread-count', authenticateToken, async (req: AuthRequest, res: Res
     });
     res.json({ unreadCount });
   } catch (err) {
-    console.error('Error fetching unread message count:', err);
+    logError('unread_count_failed', err);
     res.status(500).json({ message: 'Failed to fetch unread message count.' });
   }
 });
@@ -138,7 +141,7 @@ router.patch('/conversations/:conversationId/read', authenticateToken, async (re
     });
     res.json({ unreadCount });
   } catch (err) {
-    console.error('Error marking messages as read:', err);
+    logError('mark_messages_read_failed', err);
     res.status(500).json({ message: 'Failed to mark messages as read.' });
   }
 });
@@ -162,13 +165,22 @@ router.get('/messages/:conversationId', authenticateToken, async (req: AuthReque
       return;
     }
 
+    const requestedLimit = Number(req.query.limit ?? 50);
+    const requestedOffset = Number(req.query.offset ?? 0);
+    if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > MAX_MESSAGE_PAGE_SIZE ||
+        !Number.isInteger(requestedOffset) || requestedOffset < 0) {
+      res.status(400).json({ message: `limit must be 1-${MAX_MESSAGE_PAGE_SIZE} and offset must be 0 or more.` });
+      return;
+    }
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name profilePic')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(requestedOffset)
+      .limit(requestedLimit);
 
-    res.json(messages);
+    res.json(messages.reverse());
   } catch (err) {
-    console.error('Error fetching messages:', err);
+    logError('message_history_failed', err);
     res.status(500).json({ message: 'Failed to fetch messages.' });
   }
 });

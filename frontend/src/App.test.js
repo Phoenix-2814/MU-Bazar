@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import App from './App';
@@ -5,25 +6,25 @@ import compressImage from './utils/compressImage';
 
 const mockSocketHandlers = {};
 
-jest.mock('axios');
-jest.mock('./utils/compressImage', () => jest.fn((file) => Promise.resolve(file)));
-jest.mock('socket.io-client', () => ({
+vi.mock('axios');
+vi.mock('./utils/compressImage', () => vi.fn((file) => Promise.resolve(file)));
+vi.mock('socket.io-client', () => ({
   __esModule: true,
   io: () => ({
     on: (event, handler) => {
       mockSocketHandlers[event] = handler;
     },
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    off: jest.fn(),
-    emit: jest.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    off: vi.fn(),
+    emit: vi.fn(),
     connected: false,
   }),
 }));
 
 beforeEach(() => {
   localStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   Object.keys(mockSocketHandlers).forEach((event) => delete mockSocketHandlers[event]);
 });
 
@@ -37,7 +38,7 @@ test('renders the HostelBazar marketplace', async () => {
 test('loads the marketplace when saved user data is malformed', async () => {
   localStorage.setItem('user', '{invalid json');
   axios.get.mockResolvedValue({ data: [] });
-  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
   render(<App />);
 
@@ -48,12 +49,12 @@ test('loads the marketplace when saved user data is malformed', async () => {
 
 test('loads the marketplace if browser storage is unavailable', async () => {
   const originalGetItem = Storage.prototype.getItem;
-  const storageSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(key) {
+  const storageSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function getItem(key) {
     if (key === 'token') throw new Error('Storage is unavailable');
     return originalGetItem.call(this, key);
   });
   axios.get.mockResolvedValue({ data: [] });
-  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
   render(<App />);
   storageSpy.mockRestore();
@@ -72,11 +73,11 @@ test('keeps a successful login when browser storage rejects session writes', asy
     },
   });
   const originalSetItem = Storage.prototype.setItem;
-  const storageSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItem(key, value) {
+  const storageSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItem(key, value) {
     if (key === 'user' || key === 'token') throw new Error('Storage quota exceeded');
     return originalSetItem.call(this, key, value);
   });
-  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
   render(<App />);
   fireEvent.click(screen.getByRole('button', { name: /login \/ register/i }));
@@ -713,7 +714,7 @@ test('detects new listings on return to the page and offers browser notification
     }
     return Promise.resolve({ data: [] });
   });
-  const requestPermission = jest.fn().mockResolvedValue('granted');
+  const requestPermission = vi.fn().mockResolvedValue('granted');
   Object.defineProperty(window, 'Notification', {
     configurable: true,
     value: class MockNotification {

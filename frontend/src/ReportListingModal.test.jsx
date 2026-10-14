@@ -1,18 +1,19 @@
+import { vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import ReportListingModal from './ReportListingModal';
 
-jest.mock('axios');
+vi.mock('axios');
 
 test('submits a listing report with its selected reason and details', async () => {
-  const onSubmitted = jest.fn();
+  const onSubmitted = vi.fn();
   axios.post.mockResolvedValue({ data: { message: 'Report submitted.' } });
 
   render(
     <ReportListingModal
       listing={{ _id: 'listing-1', title: 'Test listing' }}
       token="test-token"
-      onClose={jest.fn()}
+      onClose={vi.fn()}
       onSubmitted={onSubmitted}
     />
   );
