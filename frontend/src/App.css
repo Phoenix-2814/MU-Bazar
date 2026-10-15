@@ -4361,6 +4361,55 @@ body {
   color: #f1f5f9;
 }
 
+.admin-report-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-report-export {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid #99d7d0;
+  border-radius: 10px;
+  color: #0f766e;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.admin-report-export:hover:not(:disabled) {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.admin-report-export:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.admin-report-export:focus-visible {
+  outline: 3px solid rgba(15, 118, 110, 0.24);
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"] .admin-report-export {
+  border-color: #1f5b59;
+  color: #99f6e4;
+  background: #111c2e;
+}
+
+:root[data-theme="dark"] .admin-report-export:hover:not(:disabled) {
+  background: #102b30;
+}
+
 :root[data-theme="dark"] .browser-notification-setting button {
   border-color: #1f5b59;
   background: #111c2e;

@@ -158,7 +158,7 @@ router.get('/admin', authenticateToken, async (req: AuthRequest, res: Response):
       ListingReport.find(query)
         .populate({
           path: 'listing',
-          select: 'title price images seller isHidden',
+          select: 'title price images seller isHidden category',
           populate: {
             path: 'seller',
             select: 'name email phone residencyType hostelName hostelBlock roomNumber',
@@ -581,7 +581,7 @@ router.patch('/admin/:reportId', authenticateToken, async (req: AuthRequest, res
     )
       .populate({
         path: 'listing',
-        select: 'title price images seller isHidden',
+        select: 'title price images seller isHidden category',
         populate: {
           path: 'seller',
           select: 'name email phone residencyType hostelName hostelBlock roomNumber',

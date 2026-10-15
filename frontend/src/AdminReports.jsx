@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { Download } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
@@ -10,6 +11,14 @@ const formatReason = (reason) => ({
   misleading: 'Misleading description or price',
   other: 'Something else',
 }[reason] || reason);
+
+const formatCategory = (category) => ({
+  BOOKS: 'Books & Notes',
+  ELECTRONICS: 'Electronics',
+  CLOTHING: 'Clothing',
+  HOSTEL_ESSENTIALS: 'Hostel Essentials',
+  OTHER: 'Others',
+}[category] || category);
 
 const getSellerResidency = (seller) => {
   if (!seller) return 'Seller details unavailable';
@@ -27,6 +36,12 @@ const REPORT_FILTERS = [
   { value: 'resolved', label: 'Resolved' },
   { value: 'dismissed', label: 'Dismissed' },
 ];
+
+const csvCell = (value) => {
+  const text = String(value ?? '').replace(/\r?\n/g, ' ');
+  const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
+};
 
 export default function AdminReports({ token }) {
   const [reports, setReports] = useState([]);
@@ -146,14 +161,45 @@ export default function AdminReports({ token }) {
 
   const filteredReports = reports;
 
+  const exportReports = () => {
+    if (!filteredReports.length) return;
+    const columns = [
+      ['Report ID', (report) => report._id],
+      ['Submitted', (report) => report.createdAt],
+      ['Product', (report) => report.listing?.title || 'Product removed'],
+      ['Category', (report) => formatCategory(report.listing?.category)],
+      ['Reason', (report) => formatReason(report.reason)],
+      ['Details', (report) => report.details],
+      ['Status', (report) => report.status],
+      ['Admin note', (report) => report.adminNote],
+    ];
+    const csv = [
+      columns.map(([heading]) => csvCell(heading)).join(','),
+      ...filteredReports.map((report) => columns.map(([, value]) => csvCell(value(report))).join(',')),
+    ].join('\r\n');
+    const file = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mu-bazar-reports-${selectedFilter}-page-${page}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <section className="products-page admin-reports-page">
       <div className="products-page-heading">
         <div>
           <h2>Product Reports</h2>
-          <p>Review user reports and record the outcome.</p>
+          <p>Review user reports and record the outcome. Export the current page for your records.</p>
         </div>
-        <span className="report-open-count">{reportCounts.open} open</span>
+        <div className="admin-report-heading-actions">
+          <span className="report-open-count">{reportCounts.open} open</span>
+          <button type="button" className="admin-report-export" onClick={exportReports} disabled={loading || !filteredReports.length}>
+            <Download size={15} aria-hidden="true" />
+            Export page ({filteredReports.length})
+          </button>
+        </div>
       </div>
       {error && <p className="report-error" role="alert">{error}</p>}
       <div className="admin-report-filters" role="group" aria-label="Filter reports by status">
