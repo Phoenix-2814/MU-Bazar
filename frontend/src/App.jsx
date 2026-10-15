@@ -6,6 +6,7 @@ import AdminReports from './AdminReports';
 import AdminUsers from './AdminUsers';
 import AdminDashboard from './AdminDashboard';
 import AdminSessions from './AdminSessions';
+import AdminListings from './AdminListings';
 import ChatModal from './ChatModal';
 import ReportListingModal from './ReportListingModal';
 import {
@@ -1381,6 +1382,15 @@ function App() {
         ) : activePage === 'admin-users' ? (
           isReportsAdmin ? (
             <AdminUsers token={token} />
+          ) : (
+            <section className="products-page">
+              <h2>Admin access required</h2>
+              <p className="no-items">This page is only available to authorized administrators.</p>
+            </section>
+          )
+        ) : activePage === 'admin-hidden' || activePage === 'admin-sold' ? (
+          isReportsAdmin ? (
+            <AdminListings token={token} status={activePage === 'admin-hidden' ? 'hidden' : 'sold'} />
           ) : (
             <section className="products-page">
               <h2>Admin access required</h2>

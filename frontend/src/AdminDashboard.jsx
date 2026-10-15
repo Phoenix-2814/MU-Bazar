@@ -9,8 +9,8 @@ const metricCards = [
   { key: 'totalUsers', label: 'Campus accounts', tone: 'teal', page: 'admin-users', action: 'Manage users' },
   { key: 'newUsers', label: 'Joined this week', tone: 'blue', page: 'admin-users', action: 'View users' },
   { key: 'activeListings', label: 'Products for sale', tone: 'teal', page: 'marketplace', action: 'View marketplace' },
-  { key: 'hiddenListings', label: 'Hidden products', tone: 'neutral', page: 'admin-reports', action: 'Review visibility' },
-  { key: 'soldListings', label: 'Sold products', tone: 'blue', page: 'marketplace', action: 'View marketplace' },
+  { key: 'hiddenListings', label: 'Hidden products', tone: 'neutral', page: 'admin-hidden', action: 'Review hidden products' },
+  { key: 'soldListings', label: 'Sold products', tone: 'blue', page: 'admin-sold', action: 'View sold products' },
 ];
 
 const reportReason = {
@@ -71,10 +71,22 @@ export default function AdminDashboard({ token, setActivePage }) {
 
       <div className="admin-dashboard-metrics" aria-label="Marketplace overview metrics" aria-busy={loading}>
         {metricCards.map((card) => (
-          <article className={`admin-dashboard-metric tone-${card.tone}`} key={card.key}>
+          <article
+            className={`admin-dashboard-metric tone-${card.tone}`}
+            key={card.key}
+            role="button"
+            tabIndex={0}
+            onClick={() => setActivePage(card.page)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setActivePage(card.page);
+              }
+            }}
+          >
             <span>{card.label}</span>
             <strong>{loading ? '—' : (metrics?.[card.key] ?? 0).toLocaleString()}</strong>
-            <button type="button" onClick={() => setActivePage(card.page)}>{card.action} <span aria-hidden="true">→</span></button>
+            <span className="admin-dashboard-metric-action">{card.action} <span aria-hidden="true">→</span></span>
           </article>
         ))}
       </div>

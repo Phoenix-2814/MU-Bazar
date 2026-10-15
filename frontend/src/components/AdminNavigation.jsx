@@ -1,10 +1,12 @@
-import { Activity, LayoutDashboard, ShieldAlert, UsersRound } from 'lucide-react';
+import { Activity, Archive, LayoutDashboard, PackageCheck, ShieldAlert, UsersRound } from 'lucide-react';
 
 const adminSections = [
   { id: 'admin-dashboard', label: 'Overview', icon: LayoutDashboard },
   { id: 'admin-reports', label: 'Reports', icon: ShieldAlert },
   { id: 'admin-users', label: 'Users', icon: UsersRound },
   { id: 'admin-sessions', label: 'Login activity', icon: Activity },
+  { id: 'admin-hidden', label: 'Hidden products', icon: Archive },
+  { id: 'admin-sold', label: 'Sold products', icon: PackageCheck },
 ];
 
 export default function AdminNavigation({ activePage, setActivePage }) {

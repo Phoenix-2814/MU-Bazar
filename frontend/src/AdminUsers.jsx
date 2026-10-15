@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import AdminChatHistory from './components/AdminChatHistory';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
@@ -31,6 +32,7 @@ export default function AdminUsers({ token }) {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [userDetails, setUserDetails] = useState(null);
   const [listingsPage, setListingsPage] = useState(1);
+  const [listingStatus, setListingStatus] = useState('active');
   const [savingUser, setSavingUser] = useState(false);
   const [savingListingId, setSavingListingId] = useState('');
   const [suspensionReason, setSuspensionReason] = useState('');
@@ -64,12 +66,12 @@ export default function AdminUsers({ token }) {
     loadUsers();
   }, [loadUsers]);
 
-  const loadUserDetails = useCallback(async (userId, selectedPage = 1) => {
+  const loadUserDetails = useCallback(async (userId, selectedPage = 1, selectedStatus = listingStatus) => {
     const requestId = ++detailRequestId.current;
     setError('');
     try {
       const response = await axios.get(`${API_BASE_URL}/api/reports/admin/users/${userId}`, {
-        params: { page: selectedPage },
+        params: { page: selectedPage, listingStatus: selectedStatus },
         headers: { Authorization: `Bearer ${token}` },
       });
       if (requestId !== detailRequestId.current) return;
@@ -82,11 +84,11 @@ export default function AdminUsers({ token }) {
         setError(err.response?.data?.message || 'Could not load this user profile.');
       }
     }
-  }, [token]);
+  }, [listingStatus, token]);
 
   useEffect(() => {
-    if (selectedUserId) loadUserDetails(selectedUserId, listingsPage);
-  }, [selectedUserId, listingsPage, loadUserDetails]);
+    if (selectedUserId) loadUserDetails(selectedUserId, listingsPage, listingStatus);
+  }, [selectedUserId, listingsPage, listingStatus, loadUserDetails]);
 
   const submitSearch = (event) => {
     event.preventDefault();
@@ -147,6 +149,9 @@ export default function AdminUsers({ token }) {
   };
 
   const user = userDetails?.user;
+  const visibleUserListings = (userDetails?.listings || []).filter((listing) => (
+    listingStatus === 'sold' ? listing.isSold : !listing.isSold
+  ));
 
   return (
     <section className="products-page admin-users-page">
@@ -225,9 +230,11 @@ export default function AdminUsers({ token }) {
                       onClick={() => {
                         setUserDetails(null);
                         setSelectedUserId(listedUser._id);
+                        setListingsPage(1);
+                        setListingStatus('active');
                       }}
                     >
-                      Review profile
+                      Open user details
                     </button>
                   </div>
                 </article>
@@ -264,7 +271,7 @@ export default function AdminUsers({ token }) {
               <div><dt>Residency</dt><dd>{getResidency(user)}</dd></div>
               <div><dt>Email status</dt><dd>{user.emailVerified ? 'Verified' : 'Unverified'}</dd></div>
               <div><dt>Joined</dt><dd>{new Date(user.createdAt).toLocaleString()}</dd></div>
-              <div><dt>Total products</dt><dd>{userDetails.pagination.total}</dd></div>
+              <div><dt>Total products</dt><dd>{userDetails.listingCounts?.all ?? userDetails.pagination.total}</dd></div>
               <div><dt>Account access</dt><dd>Suspension remains active until an admin reactivates the account.</dd></div>
               {user.isSuspended && (
                 <>
@@ -312,14 +319,30 @@ export default function AdminUsers({ token }) {
           <div className="products-page-heading admin-user-listings-heading">
             <div>
               <h3>Products by {user.name}</h3>
-              <p>Hide a product temporarily or permanently delete it.</p>
+              <p>Review products and open the conversations connected to each one.</p>
             </div>
+          </div>
+          <div className="admin-user-product-tabs" role="group" aria-label="Filter this user's products">
+            <button type="button" aria-pressed={listingStatus === 'active'} onClick={() => {
+              setListingsPage(1);
+              setListingStatus('active');
+            }}>
+              For sale <span>{userDetails.listingCounts?.active ?? 0}</span>
+            </button>
+            <button type="button" aria-pressed={listingStatus === 'sold'} onClick={() => {
+              setListingsPage(1);
+              setListingStatus('sold');
+            }}>
+              Sold <span>{userDetails.listingCounts?.sold ?? 0}</span>
+            </button>
           </div>
           {userDetails.listings.length === 0 ? (
             <p className="no-items">This user has no products.</p>
+          ) : visibleUserListings.length === 0 ? (
+            <p className="no-items">This user has no {listingStatus === 'sold' ? 'sold' : 'available'} products on this page.</p>
           ) : (
             <div className="admin-user-listings">
-              {userDetails.listings.map((listing) => (
+              {visibleUserListings.map((listing) => (
                 <article className="admin-user-listing" key={listing._id}>
                   {listing.images?.[0] && <img src={listing.images[0]} alt="" />}
                   <div className="admin-user-listing-info">
@@ -357,6 +380,13 @@ export default function AdminUsers({ token }) {
                       Delete
                     </button>
                   </div>
+                  <AdminChatHistory
+                    listingId={listing._id}
+                    listingTitle={listing.title}
+                    sellerId={user._id}
+                    targetUserId={user._id}
+                    token={token}
+                  />
                 </article>
               ))}
             </div>

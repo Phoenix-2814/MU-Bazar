@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 import ListingReport, { REPORT_REASONS, REPORT_STATUSES } from '../models/ListingReport';
 import Listing from '../models/Listing';
 import User from '../models/User';
+import { Conversation, Message } from '../models/Chat';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { deleteImages } from '../config/imageStorage';
-import { logError } from '../config/logger';
+import { logError, logInfo } from '../config/logger';
 
 const router = express.Router();
 
@@ -56,7 +57,7 @@ router.get('/admin/overview', authenticateToken, async (req: AuthRequest, res: R
       User.countDocuments(nonAdminUsers),
       User.countDocuments({ ...nonAdminUsers, createdAt: { $gte: sevenDaysAgo } }),
       Listing.countDocuments({ isHidden: false, isSold: false }),
-      Listing.countDocuments({ isHidden: true }),
+      Listing.countDocuments({ isHidden: true, isSold: false }),
       Listing.countDocuments({ isSold: true }),
       ListingReport.countDocuments({ status: 'open' }),
       ListingReport.find().sort({ createdAt: -1 }).limit(5).select('reason status createdAt listing')
@@ -71,6 +72,149 @@ router.get('/admin/overview', authenticateToken, async (req: AuthRequest, res: R
   } catch (err) {
     logError('admin_overview_failed', err);
     res.status(500).json({ message: 'Could not load the admin overview.' });
+  }
+});
+
+router.get('/admin/listings', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const page = Number(req.query.page ?? 1);
+  const status = req.query.status;
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : '';
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!Number.isSafeInteger(page) || page < 1 || !['hidden', 'sold'].includes(String(status))) {
+    res.status(400).json({ message: 'Choose a valid product status and page.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+    const query: Record<string, unknown> = status === 'hidden'
+      ? { isHidden: true, isSold: false }
+      : { isSold: true };
+    if (search) {
+      const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.title = { $regex: safeSearch, $options: 'i' };
+    }
+    const pageSize = 20;
+    const [listings, total] = await Promise.all([
+      Listing.find(query)
+        .populate('seller', 'name email phone residencyType hostelName hostelBlock roomNumber isSuspended')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .select('title description price category condition images seller isSold isHidden isHiddenBySuspension createdAt updatedAt'),
+      Listing.countDocuments(query),
+    ]);
+    res.json({
+      listings,
+      pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+    });
+  } catch (err) {
+    logError('admin_listing_archive_failed', err);
+    res.status(500).json({ message: 'Could not load products.' });
+  }
+});
+
+router.get('/admin/listings/:listingId/conversations', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const { listingId } = req.params;
+  const userId = typeof req.query.userId === 'string' ? req.query.userId : '';
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!mongoose.isValidObjectId(listingId) || (userId && !mongoose.isValidObjectId(userId))) {
+    res.status(400).json({ message: 'Invalid product or user ID.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+    const listing = await Listing.findById(listingId).select('_id seller');
+    if (!listing || (userId && listing.seller.toString() !== userId)) {
+      res.status(404).json({ message: 'Product not found.' });
+      return;
+    }
+    const filter: Record<string, unknown> = { itemId: listingId };
+    if (userId) filter.members = userId;
+    const conversations = await Conversation.find(filter)
+      .populate('members', 'name email')
+      .sort({ updatedAt: -1 })
+      .select('members itemId createdAt updatedAt')
+      .lean();
+    const counts = conversations.length
+      ? await Message.aggregate([
+        { $match: { conversationId: { $in: conversations.map((conversation) => conversation._id) } } },
+        { $group: { _id: '$conversationId', count: { $sum: 1 } } },
+      ])
+      : [];
+    const messageCounts = new Map(counts.map((entry) => [entry._id.toString(), entry.count]));
+    logInfo('admin_chat_history_accessed', {
+      adminId,
+      listingId: String(listingId),
+      targetUserId: userId || 'all_participants',
+      conversations: conversations.length,
+    });
+    res.json({
+      conversations: conversations.map((conversation) => ({
+        ...conversation,
+        messageCount: messageCounts.get(conversation._id.toString()) || 0,
+      })),
+    });
+  } catch (err) {
+    logError('admin_listing_conversations_failed', err);
+    res.status(500).json({ message: 'Could not load product conversations.' });
+  }
+});
+
+router.get('/admin/conversations/:conversationId/messages', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  const { conversationId } = req.params;
+  const offset = Number(req.query.offset ?? 0);
+  const limit = Number(req.query.limit ?? 100);
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+  if (!mongoose.isValidObjectId(conversationId) || !Number.isSafeInteger(offset) || offset < 0 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    res.status(400).json({ message: 'Choose a valid conversation and message page.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(adminId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+    const conversation = await Conversation.findById(conversationId).select('_id');
+    if (!conversation) {
+      res.status(404).json({ message: 'Conversation not found.' });
+      return;
+    }
+    const [messages, total] = await Promise.all([
+      Message.find({ conversationId })
+        .populate('sender', 'name email')
+        .sort({ createdAt: 1, _id: 1 })
+        .skip(offset)
+        .limit(limit)
+        .select('sender text createdAt'),
+      Message.countDocuments({ conversationId }),
+    ]);
+    logInfo('admin_chat_messages_accessed', { adminId, conversationId: String(conversationId), offset, limit });
+    res.json({ messages, pagination: { offset, limit, total, hasMore: offset + messages.length < total } });
+  } catch (err) {
+    logError('admin_conversation_messages_failed', err);
+    res.status(500).json({ message: 'Could not load chat messages.' });
   }
 });
 
@@ -307,6 +451,7 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
   const adminId = req.user?.id;
   const { userId } = req.params;
   const page = Number(req.query.page ?? 1);
+  const listingStatus = typeof req.query.listingStatus === 'string' ? req.query.listingStatus : 'all';
   if (!adminId) {
     res.status(401).json({ message: 'Authentication required.' });
     return;
@@ -319,6 +464,10 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
     res.status(400).json({ message: 'Page must be a positive integer.' });
     return;
   }
+  if (!['all', 'active', 'sold'].includes(listingStatus)) {
+    res.status(400).json({ message: 'Choose a valid product filter.' });
+    return;
+  }
 
   try {
     if (!(await isAdmin(adminId))) {
@@ -327,16 +476,21 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
     }
     const adminEmails = getAdminEmails();
     const pageSize = 25;
-    const [user, listings, listingCount] = await Promise.all([
+    const listingMatch: Record<string, unknown> = { seller: userId };
+    if (listingStatus === 'active') listingMatch.isSold = false;
+    if (listingStatus === 'sold') listingMatch.isSold = true;
+    const [user, listings, listingCount, activeListingCount, soldListingCount] = await Promise.all([
       User.findById(userId)
         .select('name email phone residencyType hostelName hostelBlock roomNumber emailVerified isSuspended suspensionReason suspendedAt suspendedBy createdAt updatedAt')
         .populate('suspendedBy', 'name email'),
-      Listing.find({ seller: userId })
+      Listing.find(listingMatch)
         .select('title description price category condition images isSold isHidden createdAt updatedAt')
         .sort({ createdAt: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize),
-      Listing.countDocuments({ seller: userId }),
+      Listing.countDocuments(listingMatch),
+      Listing.countDocuments({ seller: userId, isSold: false }),
+      Listing.countDocuments({ seller: userId, isSold: true }),
     ]);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
@@ -349,6 +503,7 @@ router.get('/admin/users/:userId', authenticateToken, async (req: AuthRequest, r
     res.json({
       user,
       listings,
+      listingCounts: { all: activeListingCount + soldListingCount, active: activeListingCount, sold: soldListingCount },
       pagination: {
         page,
         pageSize,
