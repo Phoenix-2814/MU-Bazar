@@ -85,6 +85,12 @@ export default function Navbar({
             {isReportsAdmin && (
               <>
                 <button
+                  className={`btn-sell ${activePage === 'admin-dashboard' ? 'nav-button-active' : ''}`}
+                  onClick={() => setActivePage('admin-dashboard')}
+                >
+                  ADMIN
+                </button>
+                <button
                   className={`btn-sell ${activePage === 'admin-reports' ? 'nav-button-active' : ''}`}
                   onClick={() => setActivePage('admin-reports')}
                 >

@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import './App.css';
 import AdminReports from './AdminReports';
 import AdminUsers from './AdminUsers';
+import AdminDashboard from './AdminDashboard';
 import ChatModal from './ChatModal';
 import ReportListingModal from './ReportListingModal';
 import {
@@ -1266,6 +1267,15 @@ function App() {
             sortedItems={sortedItems}
             totalItems={totalItems}
           />
+        ) : activePage === 'admin-dashboard' ? (
+          isReportsAdmin ? (
+            <AdminDashboard token={token} setActivePage={setActivePage} />
+          ) : (
+            <section className="products-page">
+              <h2>Admin access required</h2>
+              <p className="no-items">This page is only available to authorized administrators.</p>
+            </section>
+          )
         ) : activePage === 'admin-reports' ? (
           isReportsAdmin ? (
             <AdminReports token={token} />

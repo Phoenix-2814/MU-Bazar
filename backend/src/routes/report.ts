@@ -37,6 +37,43 @@ router.get('/admin/access', authenticateToken, async (req: AuthRequest, res: Res
   }
 });
 
+router.get('/admin/overview', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+
+  try {
+    if (!(await isAdmin(userId))) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const nonAdminUsers = { email: { $nin: getAdminEmails() } };
+    const [totalUsers, newUsers, activeListings, hiddenListings, soldListings, openReports, recentReports] = await Promise.all([
+      User.countDocuments(nonAdminUsers),
+      User.countDocuments({ ...nonAdminUsers, createdAt: { $gte: sevenDaysAgo } }),
+      Listing.countDocuments({ isHidden: false, isSold: false }),
+      Listing.countDocuments({ isHidden: true }),
+      Listing.countDocuments({ isSold: true }),
+      ListingReport.countDocuments({ status: 'open' }),
+      ListingReport.find().sort({ createdAt: -1 }).limit(5).select('reason status createdAt listing')
+        .populate('listing', 'title category'),
+    ]);
+
+    res.json({
+      metrics: { totalUsers, newUsers, activeListings, hiddenListings, soldListings, openReports },
+      recentReports,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    logError('admin_overview_failed', err);
+    res.status(500).json({ message: 'Could not load the admin overview.' });
+  }
+});
+
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const reporterId = req.user?.id;
   const { listingId, reason, details = '' } = req.body || {};
