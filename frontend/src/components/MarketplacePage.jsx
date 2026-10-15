@@ -1,4 +1,4 @@
-import { Share2, Flag, MessageCircle } from 'lucide-react';
+import { Share2, Flag, MessageCircle, SearchX } from 'lucide-react';
 import ListingImage from './ListingImage';
 import { CATEGORY_OPTIONS } from '../config';
 
@@ -30,6 +30,15 @@ export default function MarketplacePage({
   sortedItems,
   totalItems,
 }) {
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() || selectedCategory !== 'ALL' || minimumPrice || maximumPrice
+  );
+  const emptyStateTitle = searchQuery.trim() || minimumPrice || maximumPrice
+    ? 'No products match your filters'
+    : selectedCategory !== 'ALL'
+      ? 'No products in this category yet'
+      : 'No products listed yet';
+
   return (
       <>
     <section className="marketplace-heading" aria-labelledby="marketplace-title">
@@ -149,8 +158,25 @@ export default function MarketplacePage({
         </div>
       )}
       {priceRangeError ? null : filteredItems.length === 0 ? (
-      <div className="no-items">
-        <p>No products match your search or filters.</p>
+      <div className="marketplace-empty-state" role="status" aria-live="polite">
+        <span className="marketplace-empty-icon" aria-hidden="true"><SearchX size={23} /></span>
+        <h3>{emptyStateTitle}</h3>
+        <p>{hasActiveFilters
+          ? 'Try a different search or adjust your filters to find what you need.'
+          : 'Campus finds will show up here as students post products for sale.'}</p>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('ALL');
+              setMinimumPrice('');
+              setMaximumPrice('');
+            }}
+          >
+            Reset search and filters
+          </button>
+        )}
       </div>
     ) : (
       <div className="items-grid">

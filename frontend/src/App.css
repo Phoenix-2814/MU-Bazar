@@ -4201,6 +4201,77 @@ body {
   color: #5eead4;
 }
 
+.marketplace-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 620px);
+  margin: 18px auto 8px;
+  padding: clamp(28px, 6vw, 52px) 22px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.marketplace-empty-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  margin-bottom: 4px;
+  border: 1px solid #ccfbf1;
+  border-radius: 17px;
+  color: #0f766e;
+  background: #f0fdfa;
+}
+
+.marketplace-empty-state h3 {
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.marketplace-empty-state p {
+  max-width: 46ch;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.marketplace-empty-state button {
+  min-height: 42px;
+  margin-top: 6px;
+  padding: 0 15px;
+  border: 1px solid #0f766e;
+  border-radius: 11px;
+  color: #fff;
+  background: #0f766e;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.marketplace-empty-state button:hover {
+  background: #0d9488;
+}
+
+:root[data-theme="dark"] .marketplace-empty-state {
+  border-color: #334155;
+  background: rgba(17, 28, 46, 0.72);
+}
+
+:root[data-theme="dark"] .marketplace-empty-icon {
+  border-color: #1f5b59;
+  color: #5eead4;
+  background: #102b30;
+}
+
+:root[data-theme="dark"] .marketplace-empty-state h3 {
+  color: #f1f5f9;
+}
+
 :root[data-theme="dark"] .browser-notification-setting button {
   border-color: #1f5b59;
   background: #111c2e;
