@@ -11,16 +11,39 @@ export const getSavedTheme = () => {
 
 export const persistSession = (user, token) => {
   try {
-    localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('token', token);
+    sessionStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('token', token);
+    sessionStorage.setItem('sessionActivityAt', String(Date.now()));
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
   } catch (err) {
     console.error('Failed to save session to browser storage:', err);
+  }
+};
+
+export const getSessionActivityAt = () => {
+  try {
+    const timestamp = Number(sessionStorage.getItem('sessionActivityAt'));
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now();
+  } catch (err) {
+    console.error('Failed to load session activity time:', err);
+    return Date.now();
+  }
+};
+
+export const persistSessionActivity = (timestamp = Date.now()) => {
+  try {
+    sessionStorage.setItem('sessionActivityAt', String(timestamp));
+  } catch (err) {
+    console.error('Failed to save session activity time:', err);
   }
 };
 
 export const removeStoredItem = (key) => {
   try {
     localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+    if (key === 'token') sessionStorage.removeItem('sessionActivityAt');
   } catch (err) {
     console.error(`Failed to remove ${key} from browser storage:`, err);
   }
@@ -28,8 +51,10 @@ export const removeStoredItem = (key) => {
 
 export const getSavedSession = () => {
   try {
-    const savedUser = localStorage.getItem('user');
-    const savedToken = localStorage.getItem('token') || '';
+    const savedUser = sessionStorage.getItem('user');
+    const savedToken = sessionStorage.getItem('token') || '';
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     if (!savedUser) return { user: null, token: '' };
 
     const parsedUser = JSON.parse(savedUser);

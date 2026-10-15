@@ -5,6 +5,7 @@ import './App.css';
 import AdminReports from './AdminReports';
 import AdminUsers from './AdminUsers';
 import AdminDashboard from './AdminDashboard';
+import AdminSessions from './AdminSessions';
 import ChatModal from './ChatModal';
 import ReportListingModal from './ReportListingModal';
 import {
@@ -25,7 +26,14 @@ import {
   normalizeSearchText,
   validateListingForm,
 } from './utils/listings';
-import { getSavedSession, getSavedTheme, persistSession, removeStoredItem } from './utils/storage';
+import {
+  getSavedSession,
+  getSavedTheme,
+  getSessionActivityAt,
+  persistSession,
+  persistSessionActivity,
+  removeStoredItem,
+} from './utils/storage';
 import validateImageFiles from './utils/validateImageFiles';
 import AuthModal from './components/AuthModal';
 import CategoryBar from './components/CategoryBar';
@@ -91,6 +99,7 @@ function App() {
   const loadedListingParamsKeyRef = useRef(null);
   const unreadCountRef = useRef(unreadMessageCount);
   const browserNotificationPermissionRef = useRef(browserNotificationPermission);
+  const logoutHandlerRef = useRef(null);
   const currentUserId = user?._id || user?.id;
   unreadCountRef.current = unreadMessageCount;
   browserNotificationPermissionRef.current = browserNotificationPermission;
@@ -842,7 +851,13 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = (reason = 'manual') => {
+    const activeToken = token;
+    if (activeToken) {
+      axios.post(`${API_BASE_URL}/api/auth/logout`, { reason }, {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      }).catch(() => {});
+    }
     const publicNotifications = notifications.filter((notification) => notification.type !== 'message');
     setNotifications(publicNotifications);
     try {
@@ -857,7 +872,72 @@ function App() {
     removeStoredItem('user');
     removeStoredItem('token');
     setIsEditingProfile(false);
+    if (reason === 'idle_timeout') {
+      showToast('You were signed out after 30 minutes of inactivity.', 'success');
+    }
   };
+
+  logoutHandlerRef.current = handleLogout;
+
+  useEffect(() => {
+    if (!token) return undefined;
+
+    let logoutTimer;
+    let lastActivityRequestAt = 0;
+    const idleTimeoutMs = 30 * 60 * 1000;
+    const activityEvents = ['pointerdown', 'keydown', 'scroll', 'touchstart'];
+
+    const scheduleLogout = () => {
+      window.clearTimeout(logoutTimer);
+      const remaining = idleTimeoutMs - (Date.now() - getSessionActivityAt());
+      if (remaining <= 0) {
+        logoutHandlerRef.current?.('idle_timeout');
+        return;
+      }
+      logoutTimer = window.setTimeout(() => logoutHandlerRef.current?.('idle_timeout'), remaining);
+    };
+
+    const recordActivity = () => {
+      const now = Date.now();
+      persistSessionActivity(now);
+      scheduleLogout();
+      if (now - lastActivityRequestAt < 60_000) return;
+      lastActivityRequestAt = now;
+      axios.post(`${API_BASE_URL}/api/auth/activity`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((error) => {
+        if (error.response?.status === 401 || error.response?.data?.code === 'SESSION_EXPIRED') {
+          logoutHandlerRef.current?.('idle_timeout');
+        }
+      });
+    };
+
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, recordActivity, { passive: true }));
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (Date.now() - getSessionActivityAt() >= idleTimeoutMs) {
+          logoutHandlerRef.current?.('idle_timeout');
+        } else {
+          recordActivity();
+        }
+      }
+    };
+    const onPageHide = (event) => {
+      if (event.persisted || !navigator.sendBeacon) return;
+      const payload = new URLSearchParams({ token, reason: 'tab_closed' });
+      navigator.sendBeacon(`${API_BASE_URL}/api/auth/logout`, payload);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    scheduleLogout();
+
+    return () => {
+      window.clearTimeout(logoutTimer);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, recordActivity));
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [token]);
 
   const handlePostSubmit = async (e) => {
     e.preventDefault();
@@ -1270,6 +1350,15 @@ function App() {
         ) : activePage === 'admin-dashboard' ? (
           isReportsAdmin ? (
             <AdminDashboard token={token} setActivePage={setActivePage} />
+          ) : (
+            <section className="products-page">
+              <h2>Admin access required</h2>
+              <p className="no-items">This page is only available to authorized administrators.</p>
+            </section>
+          )
+        ) : activePage === 'admin-sessions' ? (
+          isReportsAdmin ? (
+            <AdminSessions token={token} />
           ) : (
             <section className="products-page">
               <h2>Admin access required</h2>

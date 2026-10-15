@@ -1,14 +1,16 @@
 import express, { Request, Response, Router } from 'express';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User';
+import AuthSession, { SESSION_IDLE_TIMEOUT_MS, SESSION_MAX_LIFETIME_MS, SessionLogoutReason } from '../models/AuthSession';
 import JWT_SECRET from '../config/jwt';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../config/mailer';
 import { imageUpload, uploadImage, validateImageContent } from '../config/imageStorage';
 import { authRateLimit, loginRateLimit, uploadRateLimit } from '../middleware/rateLimit';
 import { logError } from '../config/logger';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router: Router = express.Router();
 const googleClient = new OAuth2Client();
@@ -22,6 +24,32 @@ const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PASSWORD_RESET_RESEND_COOLDOWN_MS = 60 * 1000;
+const getAdminEmails = (): string[] => (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const createSessionToken = async (user: InstanceType<typeof User>): Promise<string> => {
+  const now = new Date();
+  const sessionId = randomUUID();
+  await AuthSession.create({
+    _id: sessionId,
+    userId: user._id,
+    userName: user.name,
+    userEmail: user.email,
+    loginAt: now,
+    lastActivityAt: now,
+    expiresAt: new Date(now.getTime() + SESSION_MAX_LIFETIME_MS),
+  });
+  return jwt.sign({
+    id: user._id.toString(),
+    sid: sessionId,
+    emailVerified: true,
+    tokenVersion: user.tokenVersion,
+  }, JWT_SECRET, { expiresIn: '30d' });
+};
 
 const hashToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
@@ -142,7 +170,7 @@ router.post('/google', authRateLimit, async (req: Request, res: Response): Promi
       return;
     }
 
-    const token = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
+    const token = await createSessionToken(user);
     res.json({ token, user: toSafeUser(user) });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === 11000) {
@@ -313,7 +341,7 @@ router.post('/verify-email', authRateLimit, async (req: Request, res: Response):
       return;
     }
 
-    const authToken = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
+    const authToken = await createSessionToken(user);
     res.json({ token: authToken, user: toSafeUser(user) });
   } catch (err) {
     logError('email_verification_failed', err);
@@ -484,12 +512,160 @@ router.post('/login', authRateLimit, loginRateLimit, async (req: Request, res: R
       return;
     }
 
-    const token = jwt.sign({ id: user._id.toString(), emailVerified: true, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
+    const token = await createSessionToken(user);
 
     res.json({ token, user: toSafeUser(user) });
   } catch (err: any) {
     logError('login_failed', err);
     res.status(500).json({ message: 'Could not log in right now. Please try again later.' });
+  }
+});
+
+router.post('/logout', async (req: Request, res: Response): Promise<void> => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : typeof req.body?.token === 'string'
+      ? req.body.token
+      : '';
+  if (!token) {
+    res.status(204).end();
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (typeof decoded !== 'string' && typeof decoded.id === 'string' && typeof decoded.sid === 'string') {
+      const requestedReason = req.body?.reason;
+      const reason: SessionLogoutReason = ['manual', 'tab_closed', 'idle_timeout'].includes(requestedReason)
+        ? requestedReason
+        : 'manual';
+      const now = new Date();
+      await AuthSession.findOneAndUpdate(
+        { _id: decoded.sid, userId: decoded.id, loggedOutAt: null },
+        { $set: { loggedOutAt: now, logoutReason: reason } }
+      );
+    }
+  } catch {
+    // Logout is intentionally idempotent for expired, invalid, or already-closed sessions.
+  }
+
+  res.status(204).end();
+});
+
+router.post('/activity', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const sessionId = req.user?.sid;
+  if (!userId || !sessionId) {
+    res.status(401).json({ code: 'SESSION_EXPIRED', message: 'Please log in again.' });
+    return;
+  }
+
+  try {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS);
+    const session = await AuthSession.findOneAndUpdate(
+      {
+        _id: sessionId,
+        userId,
+        loggedOutAt: null,
+        expiresAt: { $gt: now },
+        lastActivityAt: { $gt: cutoff },
+      },
+      { $set: { lastActivityAt: now } },
+      { new: true }
+    ).select('lastActivityAt');
+    if (!session) {
+      res.status(401).json({ code: 'SESSION_EXPIRED', message: 'Your session expired. Please log in again.' });
+      return;
+    }
+    res.json({ lastActivityAt: session.lastActivityAt });
+  } catch (err) {
+    logError('session_activity_update_failed', err);
+    res.status(500).json({ message: 'Could not update session activity.' });
+  }
+});
+
+router.get('/admin/sessions', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+  const adminId = req.user?.id;
+  if (!adminId) {
+    res.status(401).json({ message: 'Authentication required.' });
+    return;
+  }
+
+  const page = Number(req.query.page ?? 1);
+  const pageSize = 50;
+  const status = typeof req.query.status === 'string' ? req.query.status : 'all';
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : '';
+  if (!Number.isSafeInteger(page) || page < 1 || !['all', 'active', 'closed'].includes(status)) {
+    res.status(400).json({ message: 'Choose a valid session page and status filter.' });
+    return;
+  }
+
+  try {
+    const admin = await User.findById(adminId).select('email');
+    if (!admin?.email || !getAdminEmails().includes(admin.email.toLowerCase())) {
+      res.status(403).json({ message: 'Admin access required.' });
+      return;
+    }
+
+    const now = new Date();
+    const idleCutoff = new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS);
+    const expiredByMaxAge = await AuthSession.find({ loggedOutAt: null, expiresAt: { $lte: now } })
+      .select('_id expiresAt').limit(1000).lean();
+    const expiredByIdle = await AuthSession.find({
+      loggedOutAt: null,
+      lastActivityAt: { $lte: idleCutoff },
+      expiresAt: { $gt: now },
+    }).select('_id lastActivityAt').limit(1000).lean();
+    const expirationUpdates = [
+      ...expiredByMaxAge.map((session) => ({
+        updateOne: {
+          filter: { _id: session._id, loggedOutAt: null },
+          update: { $set: { loggedOutAt: session.expiresAt, logoutReason: 'max_lifetime' } },
+        },
+      })),
+      ...expiredByIdle.map((session) => ({
+        updateOne: {
+          filter: { _id: session._id, loggedOutAt: null },
+          update: {
+            $set: {
+              loggedOutAt: new Date(session.lastActivityAt.getTime() + SESSION_IDLE_TIMEOUT_MS),
+              logoutReason: 'idle_timeout',
+            },
+          },
+        },
+      })),
+    ];
+    if (expirationUpdates.length) await AuthSession.bulkWrite(expirationUpdates);
+
+    const query: Record<string, unknown> = {};
+    if (status === 'active') query.loggedOutAt = null;
+    if (status === 'closed') query.loggedOutAt = { $ne: null };
+    if (search) {
+      const searchExpression = new RegExp(escapeRegex(search), 'i');
+      query.$or = [{ userName: searchExpression }, { userEmail: searchExpression }];
+    }
+
+    const [sessions, total, activeCount, closedCount] = await Promise.all([
+      AuthSession.find(query)
+        .sort({ loginAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .select('userName userEmail loginAt lastActivityAt loggedOutAt logoutReason')
+        .lean(),
+      AuthSession.countDocuments(query),
+      AuthSession.countDocuments({ loggedOutAt: null }),
+      AuthSession.countDocuments({ loggedOutAt: { $ne: null } }),
+    ]);
+    res.json({
+      sessions,
+      counts: { all: activeCount + closedCount, active: activeCount, closed: closedCount },
+      pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+    });
+  } catch (err) {
+    logError('admin_auth_session_list_failed', err);
+    res.status(500).json({ message: 'Could not load login activity.' });
   }
 });
 

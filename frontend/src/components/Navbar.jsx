@@ -102,6 +102,12 @@ export default function Navbar({
                 >
                   USERS
                 </button>
+                <button
+                  className={`btn-sell ${activePage === 'admin-sessions' ? 'nav-button-active' : ''}`}
+                  onClick={() => setActivePage('admin-sessions')}
+                >
+                  SESSIONS
+                </button>
               </>
             )}
             <button className="btn-sell" onClick={() => setShowPostModal(true)}>

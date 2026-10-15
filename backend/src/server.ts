@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import app from './app';
 import { Message, Conversation } from './models/Chat';
 import User from './models/User';
+import AuthSession, { SESSION_IDLE_TIMEOUT_MS } from './models/AuthSession';
 import JWT_SECRET from './config/jwt';
 import { clientOrigins, validateDeploymentConfig } from './config/urls';
 import { connectSharedRedis, consumeSocketMessageLimit, disconnectSharedRedis, sharedRedisEnabled, socketRedisAdapter } from './config/redis';
@@ -40,8 +41,26 @@ io.use(async (socket, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    if (typeof decoded === 'string' || typeof decoded.id !== 'string' || decoded.emailVerified !== true) {
+    if (
+      typeof decoded === 'string' ||
+      typeof decoded.id !== 'string' ||
+      typeof decoded.sid !== 'string' ||
+      decoded.emailVerified !== true
+    ) {
       next(new Error('Invalid authentication token.'));
+      return;
+    }
+
+    const now = new Date();
+    const session = await AuthSession.findOne({
+      _id: decoded.sid,
+      userId: decoded.id,
+      loggedOutAt: null,
+      expiresAt: { $gt: now },
+      lastActivityAt: { $gt: new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS) },
+    }).select('_id');
+    if (!session) {
+      next(new Error('Session expired. Please sign in again.'));
       return;
     }
 
@@ -56,6 +75,7 @@ io.use(async (socket, next) => {
     }
 
     socket.data.userId = decoded.id;
+    socket.data.sessionId = decoded.sid;
     next();
   } catch (err) {
     if (!(err instanceof jwt.JsonWebTokenError)) {
