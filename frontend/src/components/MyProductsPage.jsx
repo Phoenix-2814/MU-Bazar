@@ -33,6 +33,9 @@ export default function MyProductsPage({
                 <div className="item-info">
                   {item.images?.[0] && <img src={item.images[0]} alt="" />}
                   <span>
+                    <small className={`product-status-badge ${item.isHidden ? 'is-review' : ''}`}>
+                      {item.isHidden ? 'Under review' : 'Active'}
+                    </small>
                     <strong>{item.title}</strong>
                     <small>₹{item.price} · {item.category.replace('_', ' ')}</small>
                     {item.isHidden && (
@@ -46,23 +49,24 @@ export default function MyProductsPage({
                   {handleShareListing && (
                     <button
                       className="btn-modify"
-                      style={{ background: '#4f46e5', color: '#fff' }}
+                      type="button"
                       onClick={() => handleShareListing(item)}
                     >
                       Share
                     </button>
                   )}
-                  <button className="btn-modify" onClick={() => openEditModal(item)}>
-                    Modify
+                  <button type="button" className="btn-modify" onClick={() => openEditModal(item)}>
+                    Edit
                   </button>
                   <button
+                    type="button"
                     className="btn-sold"
                     disabled={isUpdatingListingStatus}
                     onClick={() => handleToggleSold(item._id, true)}
                   >
                     {isUpdatingListingStatus ? 'Updating...' : 'Mark as Sold'}
                   </button>
-                  <button className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
+                  <button type="button" className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
                     Delete
                   </button>
                 </div>
@@ -79,20 +83,21 @@ export default function MyProductsPage({
               <div className="item-info">
                 {item.images?.[0] && <img src={item.images[0]} alt="" />}
                 <span>
-                  <span className="sold-badge">SOLD</span>
+                  <small className="product-status-badge is-sold">Sold</small>
                   <strong>{item.title}</strong>
                   <small>₹{item.price} · Sold {new Date(item.updatedAt).toLocaleDateString()}</small>
                 </span>
               </div>
               <div className="action-buttons">
                 <button
+                  type="button"
                   className="btn-relist"
                   disabled={isUpdatingListingStatus}
                   onClick={() => handleToggleSold(item._id, false)}
                 >
                   {isUpdatingListingStatus ? 'Updating...' : 'Mark Active'}
                 </button>
-                <button className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
+                <button type="button" className="btn-delete" onClick={() => handleDeleteProduct(item._id)}>
                   Delete
                 </button>
               </div>
