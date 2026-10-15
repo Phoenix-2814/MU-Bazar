@@ -1,3 +1,5 @@
+import { Bell, MessageCircle, Search } from 'lucide-react';
+
 export default function Navbar({
   activePage,
   browserNotificationPermission,
@@ -32,9 +34,12 @@ export default function Navbar({
 }) {
   return (
     <header className="navbar">
-      <div
+      <a
+        href="/"
         className="brand"
-        onClick={() => {
+        aria-label="MU Bazar home"
+        onClick={(event) => {
+          event.preventDefault();
           setActivePage('marketplace');
           setSelectedCategory('ALL');
         }}
@@ -44,9 +49,10 @@ export default function Navbar({
           <h1>MU BAZAR</h1>
           <span className="tagline">Marwadi University Campus Marketplace</span>
         </div>
-      </div>
+      </a>
 
       <div className="search-bar">
+        <Search className="search-icon" size={18} aria-hidden="true" />
         <input
           type="text"
           aria-label="Search products"
@@ -69,8 +75,9 @@ export default function Navbar({
       <div className="nav-actions">
         {user ? (
           <>
-            <button className="btn-sell" onClick={handleOpenMessages}>
-              <span>MESSAGES</span>
+            <button className="btn-sell nav-message-button" onClick={handleOpenMessages}>
+              <MessageCircle size={16} aria-hidden="true" />
+              <span>Messages</span>
               {unreadMessageCount > 0 && (
                 <span className="unread-message-dot" aria-label="You have unread messages" />
               )}
@@ -115,7 +122,8 @@ export default function Navbar({
           aria-controls="notification-panel"
           onClick={() => setShowNotifications((showing) => !showing)}
         >
-          Notifications
+          <Bell size={16} aria-hidden="true" />
+          <span>Notifications</span>
           {unreadNotificationCount > 0 && (
             <span className="notification-count">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>
           )}
