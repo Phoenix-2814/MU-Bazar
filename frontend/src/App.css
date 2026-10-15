@@ -3753,11 +3753,15 @@ body {
 
 .admin-dashboard-page {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
   gap: 24px;
+  overflow-x: clip;
 }
 
 .admin-dashboard-hero {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -3813,6 +3817,7 @@ body {
 
 .admin-dashboard-metric {
   display: grid;
+  min-width: 0;
   min-height: 150px;
   align-content: start;
   gap: 9px;
@@ -3870,6 +3875,7 @@ body {
 
 .admin-dashboard-section-heading {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -3895,6 +3901,7 @@ body {
 
 .admin-dashboard-report-list li {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -3910,6 +3917,10 @@ body {
 .admin-dashboard-report-meta {
   display: grid;
   gap: 5px;
+}
+
+.admin-dashboard-report-list li > div:first-child {
+  min-width: 0;
 }
 
 .admin-dashboard-report-list strong {
@@ -3997,6 +4008,26 @@ body {
 
   .admin-dashboard-report-list strong {
     max-width: 48vw;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .navbar {
+    flex-wrap: wrap;
+  }
+
+  .navbar .search-bar {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+
+  .navbar .nav-actions {
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 
