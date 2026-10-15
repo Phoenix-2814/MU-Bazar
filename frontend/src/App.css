@@ -2504,6 +2504,35 @@ body {
   cursor: pointer;
 }
 
+@media (min-width: 901px) and (max-width: 2000px) {
+  .navbar {
+    flex-wrap: wrap;
+  }
+
+  .navbar > .brand {
+    order: 0;
+  }
+
+  .navbar > .search-bar {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .navbar > .nav-actions {
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .navbar > .profile-menu-container {
+    flex: 0 0 auto;
+  }
+}
+
 @media (max-width: 900px) {
   .navbar {
     display: grid;
