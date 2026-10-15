@@ -83,32 +83,13 @@ export default function Navbar({
               )}
             </button>
             {isReportsAdmin && (
-              <>
-                <button
-                  className={`btn-sell ${activePage === 'admin-dashboard' ? 'nav-button-active' : ''}`}
-                  onClick={() => setActivePage('admin-dashboard')}
-                >
-                  ADMIN
-                </button>
-                <button
-                  className={`btn-sell ${activePage === 'admin-reports' ? 'nav-button-active' : ''}`}
-                  onClick={() => setActivePage('admin-reports')}
-                >
-                  REPORTS
-                </button>
-                <button
-                  className={`btn-sell ${activePage === 'admin-users' ? 'nav-button-active' : ''}`}
-                  onClick={() => setActivePage('admin-users')}
-                >
-                  USERS
-                </button>
-                <button
-                  className={`btn-sell ${activePage === 'admin-sessions' ? 'nav-button-active' : ''}`}
-                  onClick={() => setActivePage('admin-sessions')}
-                >
-                  SESSIONS
-                </button>
-              </>
+              <button
+                className={`btn-sell ${activePage.startsWith('admin-') ? 'nav-button-active' : ''}`}
+                onClick={() => setActivePage('admin-dashboard')}
+                aria-current={activePage.startsWith('admin-') ? 'page' : undefined}
+              >
+                ADMIN
+              </button>
             )}
             <button className="btn-sell" onClick={() => setShowPostModal(true)}>
               + SELL ITEM

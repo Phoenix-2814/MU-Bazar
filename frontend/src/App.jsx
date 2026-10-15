@@ -36,6 +36,7 @@ import {
 } from './utils/storage';
 import validateImageFiles from './utils/validateImageFiles';
 import AuthModal from './components/AuthModal';
+import AdminNavigation from './components/AdminNavigation';
 import CategoryBar from './components/CategoryBar';
 import EditListingModal from './components/EditListingModal';
 import MarketplacePage from './components/MarketplacePage';
@@ -1318,6 +1319,9 @@ function App() {
 
       {/* Main Content Area */}
       <main className="main-content">
+        {isReportsAdmin && activePage.startsWith('admin-') && (
+          <AdminNavigation activePage={activePage} setActivePage={setActivePage} />
+        )}
         {activePage === 'marketplace' ? (
           <MarketplacePage
             expandedDescriptions={expandedDescriptions}
