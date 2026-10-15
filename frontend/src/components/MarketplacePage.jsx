@@ -38,20 +38,29 @@ export default function MarketplacePage({
     : selectedCategory !== 'ALL'
       ? 'No products in this category yet'
       : 'No products listed yet';
+  const normalizedSearchQuery = searchQuery.trim();
+  const selectedCategoryLabel = CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label;
+  const marketplaceTitle = selectedCategory !== 'ALL'
+    ? selectedCategoryLabel || 'Other Products'
+    : normalizedSearchQuery
+      ? 'Products matching your search'
+      : 'Find your next good thing';
+  const resultCountLabel = `${totalItems} ${totalItems === 1 ? 'product' : 'products'}`;
+  const marketplaceSubtitle = selectedCategory !== 'ALL'
+    ? normalizedSearchQuery
+      ? `${resultCountLabel} matching “${normalizedSearchQuery}” in ${selectedCategoryLabel || 'this category'}.`
+      : `Explore products in ${selectedCategoryLabel || 'this category'} from students around campus.`
+    : normalizedSearchQuery
+      ? `${resultCountLabel} matching “${normalizedSearchQuery}” across campus.`
+      : 'Buy, sell, and pass along useful finds around campus.';
 
   return (
       <>
     <section className="marketplace-heading" aria-labelledby="marketplace-title">
       <div className="marketplace-heading-copy">
         <p className="marketplace-eyebrow">THE CAMPUS MARKETPLACE</p>
-        <h2 id="marketplace-title">
-          {searchQuery.trim()
-            ? 'Search Results'
-            : selectedCategory === 'ALL'
-              ? 'Find your next good thing'
-              : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Products`}
-        </h2>
-        <p className="marketplace-subtitle">Buy, sell, and pass along useful finds around campus.</p>
+        <h2 id="marketplace-title">{marketplaceTitle}</h2>
+        <p className="marketplace-subtitle">{marketplaceSubtitle}</p>
       </div>
       <span className="marketplace-listing-count">
         {totalItems} {totalItems === 1 ? 'product' : 'products'}
