@@ -32,13 +32,22 @@ export default function MarketplacePage({
 }) {
   return (
       <>
-    <h2>
-      {searchQuery.trim()
-        ? 'Search Results'
-        : selectedCategory === 'ALL'
-          ? 'Recent Listings'
-          : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
-    </h2>
+    <section className="marketplace-heading" aria-labelledby="marketplace-title">
+      <div className="marketplace-heading-copy">
+        <p className="marketplace-eyebrow">THE CAMPUS MARKETPLACE</p>
+        <h2 id="marketplace-title">
+          {searchQuery.trim()
+            ? 'Search Results'
+            : selectedCategory === 'ALL'
+              ? 'Find your next good thing'
+              : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
+        </h2>
+        <p className="marketplace-subtitle">Buy, sell, and pass along useful finds around campus.</p>
+      </div>
+      <span className="marketplace-listing-count">
+        {totalItems} {totalItems === 1 ? 'listing' : 'listings'}
+      </span>
+    </section>
 
     <div className="listing-controls">
       <fieldset className="listing-price-filter">
