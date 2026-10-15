@@ -266,7 +266,7 @@ function App() {
               .forEach((item) => publishNotification({
                 type: 'listing',
                 id: item._id,
-                title: 'New listing',
+                title: 'New product',
                 body: `${item.title} · ₹${item.price}`,
                 listingId: item._id,
                 itemTitle: item.title,
@@ -285,15 +285,15 @@ function App() {
         setTotalItems(Number.isFinite(page.total) ? page.total : nextItems.length);
         setItemsLoadError('');
       } else {
-        setItemsLoadError('The listings service returned an invalid response.');
+        setItemsLoadError('The product feed returned an invalid response.');
       }
     } catch (err) {
       if (requestId !== listingRequestIdRef.current) return;
       console.error('Failed to fetch items:', err);
       setItemsLoadError(
         err.code === 'ECONNABORTED'
-          ? 'Loading listings took too long. Please check your connection and try again.'
-          : `Could not load listings: ${err.response?.data?.message || err.message}. Please try again.`
+          ? 'Loading products took too long. Please check your connection and try again.'
+          : `Could not load products: ${err.response?.data?.message || err.message}. Please try again.`
       );
     } finally {
       if (append) setLoadingMoreItems(false);
@@ -573,7 +573,7 @@ function App() {
               setDeepLinkedItem(res.data);
             }
           } catch (err) {
-            if (!cancelled) console.error('Failed to load deep-linked listing:', err);
+            if (!cancelled) console.error('Failed to load deep-linked product:', err);
           }
         }
       } else {
@@ -1042,7 +1042,7 @@ function App() {
   const handleReportListing = (item) => {
     if (!user || !token) {
       setAuthMode('login');
-      setAuthMessage('Please log in to report a listing.');
+      setAuthMessage('Please log in to report a product.');
       setShowAuthModal(true);
       return;
     }

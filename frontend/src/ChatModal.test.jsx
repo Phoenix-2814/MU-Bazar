@@ -363,5 +363,5 @@ test('labels conversations whose listing was deleted', async () => {
     />
   );
 
-  expect(await screen.findByText('Listing removed')).toBeInTheDocument();
+  expect(await screen.findByText('Product removed')).toBeInTheDocument();
 });

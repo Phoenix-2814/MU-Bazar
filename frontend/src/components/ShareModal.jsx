@@ -68,8 +68,8 @@ export default function ShareModal({ item, onClose, isNewPost = false }) {
           <h2>{isNewPost ? 'Your Product is Live! 🎉' : 'Share this Product'}</h2>
           <p className="share-modal-subtitle">
             {isNewPost
-              ? 'Your listing has been posted. Share the link with friends or university groups so buyers can find it quickly:'
-              : 'Share this listing with anyone on campus:'}
+              ? 'Your product has been posted. Share the link with friends or university groups so buyers can find it quickly:'
+              : 'Share this product with anyone on campus:'}
           </p>
         </div>
 

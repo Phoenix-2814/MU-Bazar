@@ -16,7 +16,7 @@ export default function MyProductsPage({
           <h2>{activePage === 'my-products' ? 'My Products' : 'Product History'}</h2>
           <p>
             {activePage === 'my-products'
-              ? 'Manage your active listings.'
+              ? 'Manage your active products.'
               : 'Products you have marked as sold.'}
           </p>
         </div>

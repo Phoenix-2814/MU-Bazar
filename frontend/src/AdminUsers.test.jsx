@@ -52,7 +52,7 @@ test('filters the user directory and ranks most active sellers', async () => {
 
   render(<AdminUsers token="admin-token" />);
   expect(await screen.findByText('Campus Seller')).toBeInTheDocument();
-  expect(screen.getByText('3 listings')).toBeInTheDocument();
+  expect(screen.getByText('3 products')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'New (30 days) 1' }));
   await waitFor(() => expect(axios.get).toHaveBeenLastCalledWith(
@@ -62,7 +62,7 @@ test('filters the user directory and ranks most active sellers', async () => {
     })
   ));
 
-  fireEvent.click(screen.getByRole('button', { name: 'Most listings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Most products' }));
   await waitFor(() => expect(axios.get).toHaveBeenLastCalledWith(
     expect.stringMatching(/\/api\/reports\/admin\/users$/),
     expect.objectContaining({
@@ -85,7 +85,7 @@ test('reviews a user profile and temporarily hides one of their listings', async
   expect(await screen.findByText('MU Hostel · Block B · Room 204')).toBeInTheDocument();
   expect(screen.getByText('seller@marwadiuniversity.ac.in')).toBeInTheDocument();
   expect(screen.getByText('Physics textbook')).toBeInTheDocument();
-  expect(screen.getByText('Total listings').nextElementSibling).toHaveTextContent('1');
+  expect(screen.getByText('Total products').nextElementSibling).toHaveTextContent('1');
 
   fireEvent.click(screen.getByRole('switch', { name: 'Listing visibility: visible' }));
   await waitFor(() => expect(axios.patch).toHaveBeenCalledWith(

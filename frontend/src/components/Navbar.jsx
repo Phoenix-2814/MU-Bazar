@@ -49,7 +49,7 @@ export default function Navbar({
       <div className="search-bar">
         <input
           type="text"
-          aria-label="Search listings"
+          aria-label="Search products"
           placeholder="Search by item, details, or seller..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -156,7 +156,7 @@ export default function Navbar({
                 onClick={() => handleNotificationClick(notification)}
               >
                 <span className="notification-item-type">
-                  {notification.type === 'message' ? 'Message' : 'New listing'}
+                  {notification.type === 'message' ? 'Message' : 'New product'}
                 </span>
                 <strong>{notification.title}</strong>
                 <span>{notification.body}</span>

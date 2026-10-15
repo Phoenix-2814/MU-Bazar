@@ -40,12 +40,12 @@ export default function MarketplacePage({
             ? 'Search Results'
             : selectedCategory === 'ALL'
               ? 'Find your next good thing'
-              : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Listings`}
+              : `${CATEGORY_OPTIONS.find((category) => category.key === selectedCategory)?.label || 'Other'} Products`}
         </h2>
         <p className="marketplace-subtitle">Buy, sell, and pass along useful finds around campus.</p>
       </div>
       <span className="marketplace-listing-count">
-        {totalItems} {totalItems === 1 ? 'listing' : 'listings'}
+        {totalItems} {totalItems === 1 ? 'product' : 'products'}
       </span>
     </section>
 
@@ -114,7 +114,7 @@ export default function MarketplacePage({
 
     {loading && items.length === 0 ? (
       <section className="listing-loading" role="status" aria-live="polite" aria-busy="true">
-        <p className="loading-text">Loading listings...</p>
+        <p className="loading-text">Loading products...</p>
         <div className="items-grid listing-skeleton-grid" aria-hidden="true">
           {Array.from({ length: 6 }, (_, index) => (
             <div className="listing-skeleton-card" key={index}>
@@ -139,7 +139,7 @@ export default function MarketplacePage({
       <>
       {loading && (
         <p className="listing-refresh-status" role="status" aria-live="polite">
-          Refreshing listings…
+          Refreshing products…
         </p>
       )}
       {itemsLoadError && (
@@ -150,7 +150,7 @@ export default function MarketplacePage({
       )}
       {priceRangeError ? null : filteredItems.length === 0 ? (
       <div className="no-items">
-        <p>No listings match your search or filters.</p>
+        <p>No products match your search or filters.</p>
       </div>
     ) : (
       <div className="items-grid">
@@ -165,7 +165,7 @@ export default function MarketplacePage({
                   e.stopPropagation();
                   handleShareListing(item);
                 }}
-                title="Share this listing"
+                title="Share this product"
                 aria-label={`Share ${item.title}`}
               >
                 <Share2 size={15} />
@@ -234,7 +234,7 @@ export default function MarketplacePage({
                     type="button"
                     className="btn-report-listing-icon"
                     onClick={() => handleReportListing(item)}
-                    title="Report this listing"
+                    title="Report this product"
                     aria-label={`Report ${item.title}`}
                   >
                     <Flag size={14} />
@@ -254,9 +254,9 @@ export default function MarketplacePage({
             onClick={() => fetchItems({ append: true })}
             disabled={loadingMoreItems}
           >
-            {loadingMoreItems ? 'Loading…' : 'Load more listings'}
+            {loadingMoreItems ? 'Loading…' : 'Load more products'}
           </button>
-          <p className="load-more-count">Showing {items.length} of {totalItems} listings</p>
+          <p className="load-more-count">Showing {items.length} of {totalItems} products</p>
         </div>
       )}
       </>

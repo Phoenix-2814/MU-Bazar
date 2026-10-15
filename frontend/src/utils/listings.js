@@ -58,7 +58,7 @@ export const validateListingForm = ({ title, description, price, category, condi
   }
 
   if (!validCategories.has(category)) {
-    return 'Please choose a valid listing category.';
+    return 'Please choose a valid product category.';
   }
 
   if (!validConditions.has(condition)) {

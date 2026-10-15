@@ -43,11 +43,11 @@ export default function ReportListingModal({ listing, token, onClose, onSubmitte
         <button className="close-btn" type="button" onClick={onClose} aria-label="Close report form">
           &times;
         </button>
-        <h2 id="report-heading">Report listing</h2>
+        <h2 id="report-heading">Report product</h2>
         <p className="report-listing-name">{listing.title}</p>
         {error && <p className="report-error" role="alert">{error}</p>}
         <form onSubmit={handleSubmit}>
-          <label htmlFor="report-reason">Why are you reporting this listing?</label>
+          <label htmlFor="report-reason">Why are you reporting this product?</label>
           <select
             id="report-reason"
             value={reason}

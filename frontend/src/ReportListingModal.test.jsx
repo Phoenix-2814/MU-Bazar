@@ -18,7 +18,7 @@ test('submits a listing report with its selected reason and details', async () =
     />
   );
 
-  fireEvent.change(screen.getByLabelText('Why are you reporting this listing?'), {
+  fireEvent.change(screen.getByLabelText('Why are you reporting this product?'), {
     target: { value: 'scam' },
   });
   fireEvent.change(screen.getByLabelText('Additional details (optional)'), {

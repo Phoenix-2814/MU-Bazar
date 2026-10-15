@@ -34,7 +34,7 @@ describe('ShareModal component', () => {
     render(<ShareModal item={sampleItem} onClose={handleClose} isNewPost={true} />);
 
     expect(screen.getByRole('heading', { name: /your product is live!/i })).toBeInTheDocument();
-    expect(screen.getByText(/your listing has been posted/i)).toBeInTheDocument();
+    expect(screen.getByText(/your product has been posted/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
   });
 

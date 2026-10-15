@@ -74,7 +74,7 @@ export default function AdminReports({ token }) {
       ));
     } catch (err) {
       if (requestId !== reportsRequestIdRef.current) return;
-      setError(err.response?.data?.message || 'Could not load listing reports.');
+      setError(err.response?.data?.message || 'Could not load product reports.');
     } finally {
       if (requestId === reportsRequestIdRef.current) setLoading(false);
     }
@@ -120,7 +120,7 @@ export default function AdminReports({ token }) {
   const setListingVisibility = async (report, isHidden) => {
     const listingId = report.listing?._id;
     if (!listingId) {
-      setError('This report no longer has an associated listing.');
+      setError('This report no longer has an associated product.');
       return;
     }
 
@@ -138,7 +138,7 @@ export default function AdminReports({ token }) {
           : item
       )));
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not change listing visibility.');
+      setError(err.response?.data?.message || 'Could not change product visibility.');
     } finally {
       setSavingListingId('');
     }
@@ -150,7 +150,7 @@ export default function AdminReports({ token }) {
     <section className="products-page admin-reports-page">
       <div className="products-page-heading">
         <div>
-          <h2>Listing Reports</h2>
+          <h2>Product Reports</h2>
           <p>Review user reports and record the outcome.</p>
         </div>
         <span className="report-open-count">{reportCounts.open} open</span>
@@ -177,7 +177,7 @@ export default function AdminReports({ token }) {
       {loading ? (
         <p className="loading-text">Loading reports...</p>
       ) : pagination.total === 0 && reportCounts.all === 0 ? (
-        <p className="no-items">There are no listing reports to review.</p>
+        <p className="no-items">There are no product reports to review.</p>
       ) : filteredReports.length === 0 ? (
         <p className="no-items">There are no {selectedFilter} reports.</p>
       ) : (
@@ -191,7 +191,7 @@ export default function AdminReports({ token }) {
                     <img src={report.listing.images[0]} alt="" />
                   )}
                   <div>
-                    <h3>{report.listing?.title || 'Listing no longer available'}</h3>
+                    <h3>{report.listing?.title || 'Product no longer available'}</h3>
                     {report.listing?.price != null && <strong>₹{report.listing.price}</strong>}
                   </div>
                   <span className={`report-status report-status-${report.status}`}>{report.status}</span>
@@ -203,7 +203,7 @@ export default function AdminReports({ token }) {
                       type="button"
                       role="switch"
                       aria-checked={!report.listing.isHidden}
-                      aria-label={`Listing visibility: ${report.listing.isHidden ? 'hidden' : 'visible'}`}
+                      aria-label={`Product visibility: ${report.listing.isHidden ? 'hidden' : 'visible'}`}
                       className={`listing-visibility-switch ${report.listing.isHidden ? 'is-hidden' : 'is-visible'}`}
                       disabled={savingListingId === report.listing._id}
                       onClick={() => setListingVisibility(report, !report.listing.isHidden)}

@@ -32,7 +32,7 @@ test('renders the HostelBazar marketplace', async () => {
   axios.get.mockResolvedValue({ data: [] });
   render(<App />);
   expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
-  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no products match your search/i)).toBeInTheDocument();
 });
 
 test('loads the marketplace when saved user data is malformed', async () => {
@@ -43,7 +43,7 @@ test('loads the marketplace when saved user data is malformed', async () => {
   render(<App />);
 
   expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
-  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no products match your search/i)).toBeInTheDocument();
   expect(errorSpy).toHaveBeenCalledWith('Failed to load saved session:', expect.any(SyntaxError));
 });
 
@@ -60,7 +60,7 @@ test('loads the marketplace if browser storage is unavailable', async () => {
   storageSpy.mockRestore();
 
   expect(screen.getByRole('heading', { name: /mu bazar/i })).toBeInTheDocument();
-  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no products match your search/i)).toBeInTheDocument();
   expect(errorSpy).toHaveBeenCalledWith('Failed to load saved session:', expect.any(Error));
 });
 
@@ -150,7 +150,7 @@ test('announces listing loading accessibly and shows responsive loading placehol
   render(<App />);
 
   expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
-  expect(screen.getByText('Loading listings...')).toBeInTheDocument();
+  expect(screen.getByText('Loading products...')).toBeInTheDocument();
   expect(document.querySelectorAll('.listing-skeleton-card')).toHaveLength(6);
 });
 
@@ -210,7 +210,7 @@ test('shows a clear timeout message and retry option when listings take too long
   render(<App />);
 
   expect(await screen.findByText(
-    'Loading listings took too long. Please check your connection and try again.'
+    'Loading products took too long. Please check your connection and try again.'
   )).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
 });
@@ -368,7 +368,7 @@ test('keeps loaded listings visible when a background refresh fails and allows r
   expect(await screen.findByText('Cached listing')).toBeInTheDocument();
 
   fireEvent.focus(window);
-  expect(await screen.findByRole('alert')).toHaveTextContent(/could not load listings/i);
+  expect(await screen.findByRole('alert')).toHaveTextContent(/could not load products/i);
   expect(screen.getByText('Cached listing')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -421,8 +421,8 @@ test('clears initial loading when a newer background refresh completes first', a
     pendingRequests[1]({ data: [] });
   });
 
-  expect(screen.queryByText('Loading listings...')).not.toBeInTheDocument();
-  expect(screen.getByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(screen.queryByText('Loading products...')).not.toBeInTheDocument();
+  expect(screen.getByText(/no products match your search/i)).toBeInTheDocument();
 });
 
 test('search matches multiple terms across listing details and seller, ignoring case and extra spaces', async () => {
@@ -454,7 +454,7 @@ test('search matches multiple terms across listing details and seller, ignoring 
   });
 
   render(<App />);
-  const search = screen.getByRole('textbox', { name: 'Search listings' });
+  const search = screen.getByRole('textbox', { name: 'Search products' });
   fireEvent.change(search, { target: { value: '  CHEMISTRY   krishna  ' } });
 
   expect(await screen.findByText('Organic Chemistry Textbook')).toBeInTheDocument();
@@ -481,10 +481,10 @@ test('category filters expose their selected state and can be cleared when no li
   const booksButton = screen.getByRole('button', { name: 'Books & Notes' });
   fireEvent.click(booksButton);
   expect(booksButton).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByRole('heading', { name: 'Books & Notes Listings' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Books & Notes Products' })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Electronics' }));
-  expect(await screen.findByText(/no listings match your search/i)).toBeInTheDocument();
+  expect(await screen.findByText(/no products match your search/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Clear marketplace filters' }));
 
   expect(await screen.findByText('Organic Chemistry Textbook')).toBeInTheDocument();
@@ -1027,8 +1027,8 @@ test('loads the next page of listings with the Load more button', async () => {
   render(<App />);
 
   expect(await screen.findByText('Paged listing 20')).toBeInTheDocument();
-  expect(screen.getByText('Showing 20 of 22 listings')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Load more listings' }));
+  expect(screen.getByText('Showing 20 of 22 products')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Load more products' }));
 
   expect(await screen.findByText('Paged listing 22')).toBeInTheDocument();
   expect(document.querySelectorAll('.items-grid .item-card')).toHaveLength(22);
@@ -1036,16 +1036,16 @@ test('loads the next page of listings with the Load more button', async () => {
     expect.stringMatching(/\/api\/items$/),
     expect.objectContaining({ params: expect.objectContaining({ limit: 20, offset: 20 }) })
   );
-  expect(screen.queryByRole('button', { name: 'Load more listings' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Load more products' })).not.toBeInTheDocument();
 });
 
 test('sends search, category, price, and sort filters to the listings API', async () => {
   axios.get.mockResolvedValue({ data: { items: [], total: 0, hasMore: false } });
 
   render(<App />);
-  await screen.findByText('No listings match your search or filters.');
+  await screen.findByText('No products match your search or filters.');
 
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search listings' }), { target: { value: '  Physics   Book ' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search products' }), { target: { value: '  Physics   Book ' } });
   fireEvent.change(screen.getByRole('spinbutton', { name: 'Minimum price' }), { target: { value: '100' } });
   fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'price-low' } });
   fireEvent.click(screen.getByRole('button', { name: 'Books & Notes' }));

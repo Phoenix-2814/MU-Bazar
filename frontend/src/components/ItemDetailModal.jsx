@@ -41,7 +41,7 @@ export default function ItemDetailModal({
               type="button"
               className="btn-card-share"
               onClick={() => handleShareListing(item)}
-              aria-label="Share this listing"
+              aria-label="Share this product"
             >
               <Share2 size={14} />
               <span>Share</span>

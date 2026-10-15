@@ -7,7 +7,7 @@ export default function CategoryBar({
   theme,
 }) {
   return (
-    <nav className="category-bar" aria-label="Listing categories">
+    <nav className="category-bar" aria-label="Product categories">
       <div className="category-options">
         {CATEGORY_OPTIONS.map((cat) => (
           <button

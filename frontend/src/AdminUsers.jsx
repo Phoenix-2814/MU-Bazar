@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
 const USER_FILTERS = [
   { value: 'all', label: 'All users' },
   { value: 'new', label: 'New (30 days)' },
-  { value: 'high-posted', label: 'Most listings' },
+  { value: 'high-posted', label: 'Most products' },
   { value: 'suspended', label: 'Suspended' },
 ];
 
@@ -124,14 +124,14 @@ export default function AdminUsers({ token }) {
       );
       await Promise.all([loadUserDetails(selectedUserId, listingsPage), loadUsers()]);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not update listing visibility.');
+      setError(err.response?.data?.message || 'Could not update product visibility.');
     } finally {
       setSavingListingId('');
     }
   };
 
   const deleteListing = async (listing) => {
-    if (!window.confirm(`Permanently delete “${listing.title}”? This cannot be undone.`)) return;
+    if (!window.confirm(`Permanently delete the product “${listing.title}”? This cannot be undone.`)) return;
     setSavingListingId(listing._id);
     setError('');
     try {
@@ -140,7 +140,7 @@ export default function AdminUsers({ token }) {
       });
       await Promise.all([loadUserDetails(selectedUserId, listingsPage), loadUsers()]);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not delete this listing.');
+      setError(err.response?.data?.message || 'Could not delete this product.');
     } finally {
       setSavingListingId('');
     }
@@ -153,7 +153,7 @@ export default function AdminUsers({ token }) {
       <div className="products-page-heading">
         <div>
           <h2>User management</h2>
-          <p>Review campus accounts, activity, and marketplace listings.</p>
+          <p>Review campus accounts, activity, and marketplace products.</p>
         </div>
         {user && (
           <button type="button" className="btn-cancel" onClick={() => {
@@ -216,7 +216,7 @@ export default function AdminUsers({ token }) {
                       <small>Joined {new Date(listedUser.createdAt).toLocaleDateString()}</small>
                     </div>
                     <span className="admin-user-listing-count">
-                      {listedUser.listingCount} {listedUser.listingCount === 1 ? 'listing' : 'listings'}
+                      {listedUser.listingCount} {listedUser.listingCount === 1 ? 'product' : 'products'}
                     </span>
                     {listedUser.isSuspended && <span className="admin-user-suspended-badge">Suspended</span>}
                     <button
@@ -264,7 +264,7 @@ export default function AdminUsers({ token }) {
               <div><dt>Residency</dt><dd>{getResidency(user)}</dd></div>
               <div><dt>Email status</dt><dd>{user.emailVerified ? 'Verified' : 'Unverified'}</dd></div>
               <div><dt>Joined</dt><dd>{new Date(user.createdAt).toLocaleString()}</dd></div>
-              <div><dt>Total listings</dt><dd>{userDetails.pagination.total}</dd></div>
+              <div><dt>Total products</dt><dd>{userDetails.pagination.total}</dd></div>
               <div><dt>Account access</dt><dd>Suspension remains active until an admin reactivates the account.</dd></div>
               {user.isSuspended && (
                 <>
@@ -311,12 +311,12 @@ export default function AdminUsers({ token }) {
 
           <div className="products-page-heading admin-user-listings-heading">
             <div>
-              <h3>Listings by {user.name}</h3>
-              <p>Hide a listing temporarily or permanently delete it.</p>
+              <h3>Products by {user.name}</h3>
+              <p>Hide a product temporarily or permanently delete it.</p>
             </div>
           </div>
           {userDetails.listings.length === 0 ? (
-            <p className="no-items">This user has no listings.</p>
+            <p className="no-items">This user has no products.</p>
           ) : (
             <div className="admin-user-listings">
               {userDetails.listings.map((listing) => (
@@ -337,9 +337,9 @@ export default function AdminUsers({ token }) {
                       className="listing-visibility-switch"
                       role="switch"
                       aria-checked={!listing.isHidden}
-                      aria-label={`Listing visibility: ${listing.isHidden ? 'hidden' : 'visible'}`}
+                      aria-label={`Product visibility: ${listing.isHidden ? 'hidden' : 'visible'}`}
                       disabled={savingListingId === listing._id || user.isSuspended}
-                      title={user.isSuspended ? 'Reactivate the seller to manage listing visibility.' : undefined}
+                      title={user.isSuspended ? 'Reactivate the seller to manage product visibility.' : undefined}
                       onClick={() => setListingVisibility(listing, !listing.isHidden)}
                     >
                       {savingListingId === listing._id
@@ -362,7 +362,7 @@ export default function AdminUsers({ token }) {
             </div>
           )}
           {userDetails.pagination.totalPages > 1 && (
-            <nav className="admin-report-pagination" aria-label="User listing pages">
+            <nav className="admin-report-pagination" aria-label="User product pages">
               <button type="button" disabled={listingsPage <= 1} onClick={() => setListingsPage((current) => current - 1)}>
                 Previous
               </button>

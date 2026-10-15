@@ -292,7 +292,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
                   )}
                   <div className="chat-product-details">
                     <span className="chat-product-title">
-                      {activeConversation.itemId ? activeConversation.itemId.title || 'Listing' : 'Listing removed'}
+                      {activeConversation.itemId ? activeConversation.itemId.title || 'Product' : 'Product removed'}
                     </span>
                     {activeConversation.itemId?.price != null && (
                       <strong>₹{activeConversation.itemId.price}</strong>
@@ -314,7 +314,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
             {loading ? (
               <p className="chat-empty-state">Loading conversations...</p>
             ) : conversations.length === 0 ? (
-              <p className="chat-empty-state">No messages yet. Contact a seller from a listing to start chatting.</p>
+              <p className="chat-empty-state">No messages yet. Contact a seller about a product to start chatting.</p>
             ) : conversations.map((conversation) => (
               <button
                 className="chat-conversation-item"
@@ -324,7 +324,7 @@ export default function ChatModal({ conversationId, currentUser, token, onUnread
               >
                 <span className="chat-conversation-copy">
                   <strong>{getConversationTitle(conversation)}</strong>
-                  <span>{conversation.itemId ? conversation.itemId.title || 'Listing' : 'Listing removed'}</span>
+                  <span>{conversation.itemId ? conversation.itemId.title || 'Product' : 'Product removed'}</span>
                   <span className="chat-last-message">{conversation.lastMessage || 'Start the conversation'}</span>
                 </span>
                 <span className="chat-conversation-price">
