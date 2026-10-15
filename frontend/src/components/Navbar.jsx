@@ -1,4 +1,4 @@
-import { Bell, MessageCircle, Search } from 'lucide-react';
+import { Bell, Box, History, LogOut, MessageCircle, Search, UserRound } from 'lucide-react';
 
 export default function Navbar({
   activePage,
@@ -206,38 +206,48 @@ export default function Navbar({
           </button>
           {showProfileDropdown && (
             <section id="profile-dropdown" className="profile-dropdown" aria-label="Profile menu">
+              <p className="profile-dropdown-label">YOUR ACCOUNT</p>
               <button
                 type="button"
+                className="profile-dropdown-action"
                 onClick={() => {
                   setShowProfileDropdown(false);
                   setActivePage('my-products');
                 }}
               >
-                My Products ({myActiveListings.length})
+                <Box size={17} aria-hidden="true" />
+                <span>My Products</span>
+                <span className="profile-menu-count">{myActiveListings.length}</span>
               </button>
               <button
                 type="button"
+                className="profile-dropdown-action"
                 onClick={() => {
                   setShowProfileDropdown(false);
                   setActivePage('history');
                 }}
               >
-                History ({mySoldHistoryListings.length})
+                <History size={17} aria-hidden="true" />
+                <span>History</span>
+                <span className="profile-menu-count">{mySoldHistoryListings.length}</span>
               </button>
               <button
                 type="button"
+                className="profile-dropdown-action"
                 onClick={() => {
                   setIsEditingProfile(false);
                   setShowProfileDropdown(false);
                   setActivePage('profile');
                 }}
               >
+                <UserRound size={17} aria-hidden="true" />
                 My Profile
               </button>
               <button type="button" className="profile-dropdown-logout" onClick={() => {
                 setShowProfileDropdown(false);
                 handleLogout();
               }}>
+                <LogOut size={17} aria-hidden="true" />
                 Logout
               </button>
             </section>

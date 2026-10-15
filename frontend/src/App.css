@@ -430,6 +430,14 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.profile-dropdown-label {
+  padding: 7px 10px 6px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
 .profile-dropdown > button {
   padding: 10px;
   border: 0;
@@ -439,6 +447,42 @@ body {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.profile-dropdown > .profile-dropdown-action,
+.profile-dropdown > .profile-dropdown-logout {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.profile-dropdown > .profile-dropdown-action > svg {
+  flex: 0 0 auto;
+  color: #0f766e;
+}
+
+.profile-dropdown > .profile-dropdown-action:hover,
+.profile-dropdown > .profile-dropdown-action:focus-visible {
+  color: #0f766e;
+  background: #f0fdfa;
+}
+
+.profile-menu-count {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #0f766e;
+  background: #ccfbf1;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .profile-dropdown > button:hover,
@@ -451,6 +495,10 @@ body {
   margin-top: 4px;
   border-top: 1px solid var(--border-subtle);
   border-radius: 0 0 8px 8px;
+  color: #b91c1c;
+}
+
+.profile-dropdown > .profile-dropdown-logout > svg {
   color: #b91c1c;
 }
 
@@ -4199,6 +4247,26 @@ body {
 :root[data-theme="dark"] .notification-item-type,
 :root[data-theme="dark"] .browser-notification-setting button {
   color: #5eead4;
+}
+
+:root[data-theme="dark"] .profile-dropdown-label {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .profile-dropdown > .profile-dropdown-action > svg,
+:root[data-theme="dark"] .profile-dropdown > .profile-dropdown-action:hover,
+:root[data-theme="dark"] .profile-dropdown > .profile-dropdown-action:focus-visible {
+  color: #5eead4;
+}
+
+:root[data-theme="dark"] .profile-dropdown > .profile-dropdown-action:hover,
+:root[data-theme="dark"] .profile-dropdown > .profile-dropdown-action:focus-visible {
+  background: #102b30;
+}
+
+:root[data-theme="dark"] .profile-menu-count {
+  color: #99f6e4;
+  background: #102b30;
 }
 
 .marketplace-empty-state {
