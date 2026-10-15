@@ -908,7 +908,7 @@ test('blocks invalid listing submissions before they reach the API', async () =>
   fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'A' } });
   fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: 'Bad' } });
   fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '0' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Publish product' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Title must be at least 3 characters long.');
   expect(axios.post).not.toHaveBeenCalled();
@@ -929,7 +929,7 @@ test('enforces listing title and description length limits', async () => {
   fireEvent.change(titleInput, { target: { value: 'T'.repeat(121) } });
   fireEvent.change(descriptionInput, { target: { value: 'A valid description for an item.' } });
   fireEvent.change(screen.getByPlaceholderText('Price (₹)'), { target: { value: '100' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Publish product' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Title must be 120 characters or fewer.');
   expect(axios.post).not.toHaveBeenCalled();
@@ -950,13 +950,13 @@ test('reports image processing failures and re-enables the post action', async (
   fireEvent.change(document.querySelector('input[type="file"][multiple]'), {
     target: { files: [image] },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Post Item' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Publish product' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Failed to post item: Could not compress selected image.'
+    'Failed to publish product: Could not compress selected image.'
   );
   expect(axios.post).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: 'Post Item' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Publish product' })).toBeEnabled();
 });
 
 test('marks an owned product sold with an explicit desired status', async () => {

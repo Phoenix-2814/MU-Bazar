@@ -8,29 +8,41 @@ export default function PostListingModal({
   setShowPostModal,
 }) {
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <button className="close-btn" onClick={() => setShowPostModal(false)}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="post-product-heading">
+      <div className="modal-content product-form-modal">
+        <button type="button" className="close-btn" onClick={() => setShowPostModal(false)} aria-label="Close form">
           &times;
         </button>
-        <h2>Post Item</h2>
+        <header className="product-form-heading">
+          <p>SELL ON CAMPUS</p>
+          <h2 id="post-product-heading">Sell a product</h2>
+          <span>Add a few details so students know what you’re offering.</span>
+        </header>
         <form onSubmit={handlePostSubmit}>
-          <input
+          <label className="product-form-field">
+            <span>Product title</span>
+            <input
             type="text"
             placeholder="Title"
             maxLength={MAX_LISTING_TITLE_LENGTH}
             value={postForm.title}
             onChange={(e) => setPostForm({ ...postForm, title: e.target.value })}
             required
-          />
-          <textarea
+            />
+          </label>
+          <label className="product-form-field">
+            <span>Description</span>
+            <textarea
             placeholder="Description"
             maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
             value={postForm.description}
             onChange={(e) => setPostForm({ ...postForm, description: e.target.value })}
             required
-          />
-          <input
+            />
+          </label>
+          <label className="product-form-field">
+            <span>Price</span>
+            <input
             type="number"
             placeholder="Price (₹)"
             min="1"
@@ -39,8 +51,12 @@ export default function PostListingModal({
             value={postForm.price}
             onChange={(e) => setPostForm({ ...postForm, price: e.target.value })}
             required
-          />
-          <select
+            />
+          </label>
+          <div className="product-form-selects">
+          <label className="product-form-field">
+            <span>Category</span>
+            <select
             value={postForm.category}
             onChange={(e) => setPostForm({ ...postForm, category: e.target.value })}
           >
@@ -49,8 +65,11 @@ export default function PostListingModal({
             <option value="CLOTHING">Clothing</option>
             <option value="HOSTEL_ESSENTIALS">Hostel Essentials</option>
             <option value="OTHER">Others</option>
-          </select>
-          <select
+            </select>
+          </label>
+          <label className="product-form-field">
+            <span>Condition</span>
+            <select
             value={postForm.condition}
             onChange={(e) => setPostForm({ ...postForm, condition: e.target.value })}
           >
@@ -58,15 +77,21 @@ export default function PostListingModal({
             <option value="USED_LIKE_NEW">Used - Like New</option>
             <option value="USED_GOOD">Used - Good</option>
             <option value="USED_FAIR">Used - Fair</option>
-          </select>
-          <input
+            </select>
+          </label>
+          </div>
+          <label className="product-form-field product-image-field">
+            <span>Product photos <small>Optional</small></span>
+            <input
             type="file"
             multiple
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={(e) => setPostForm({ ...postForm, images: e.target.files })}
-          />
+            />
+            <small>Use clear photos so buyers can see the item’s condition.</small>
+          </label>
           <button type="submit" className="btn-submit" disabled={isPostingItem}>
-            {isPostingItem ? 'Preparing item...' : 'Post Item'}
+            {isPostingItem ? 'Preparing product...' : 'Publish product'}
           </button>
         </form>
       </div>

@@ -12,7 +12,7 @@ export default function ItemDetailModal({
   if (!item) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="product-detail-title">
       <div
         className="modal-content item-detail-modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -48,7 +48,7 @@ export default function ItemDetailModal({
             </button>
           </div>
 
-          <h2 className="detail-title">{item.title}</h2>
+          <h2 className="detail-title" id="product-detail-title">{item.title}</h2>
           <p className="detail-description">{item.description}</p>
 
           <div className="detail-seller-card">

@@ -914,7 +914,7 @@ function App() {
       fetchItems();
       refreshMyProducts();
     } catch (err) {
-      showToast(`Failed to post item: ${err.response?.data?.message || err.message}`, 'error');
+      showToast(`Failed to publish product: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setIsPostingItem(false);
     }
