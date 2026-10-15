@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { MAX_LISTING_DESCRIPTION_LENGTH, MAX_LISTING_TITLE_LENGTH } from '../config';
 
 export default function PostListingModal({
@@ -7,6 +8,14 @@ export default function PostListingModal({
   setPostForm,
   setShowPostModal,
 }) {
+  const [imagePreviews, setImagePreviews] = useState([]);
+
+  useEffect(() => {
+    const previewUrls = Array.from(postForm.images || []).map((file) => URL.createObjectURL(file));
+    setImagePreviews(previewUrls);
+    return () => previewUrls.forEach((url) => URL.revokeObjectURL(url));
+  }, [postForm.images]);
+
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="post-product-heading">
       <div className="modal-content product-form-modal">
@@ -88,7 +97,18 @@ export default function PostListingModal({
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={(e) => setPostForm({ ...postForm, images: e.target.files })}
             />
-            <small>Use clear photos so buyers can see the item’s condition.</small>
+            <small>
+              {imagePreviews.length
+                ? `${imagePreviews.length} photo${imagePreviews.length === 1 ? '' : 's'} selected. Choose again to replace them.`
+                : 'Select up to 5 photos. Clear photos help buyers assess the product condition.'}
+            </small>
+            {imagePreviews.length > 0 && (
+              <div className="product-upload-previews" aria-label="Selected product photo previews">
+                {imagePreviews.map((preview, index) => (
+                  <img src={preview} alt={`Selected product photo ${index + 1}`} key={preview} />
+                ))}
+              </div>
+            )}
           </label>
           <button type="submit" className="btn-submit" disabled={isPostingItem}>
             {isPostingItem ? 'Preparing product...' : 'Publish product'}

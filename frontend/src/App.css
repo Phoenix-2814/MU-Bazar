@@ -1900,6 +1900,23 @@ body {
   font-size: 0.78rem;
 }
 
+.product-upload-previews {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.product-upload-previews img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #f1f5f9;
+  object-fit: cover;
+}
+
 .modal-content form {
   display: flex;
   flex-direction: column;
@@ -3249,6 +3266,10 @@ body {
   border-color: var(--border-subtle);
   color: var(--text-primary);
   background: #0b1423;
+}
+
+:root[data-theme="dark"] .product-upload-previews img {
+  border-color: var(--border-subtle);
 }
 
 :root[data-theme="dark"] .description-toggle,
