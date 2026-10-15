@@ -2041,6 +2041,112 @@ body {
   box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
 }
 
+/* Authentication modal */
+.auth-modal-content {
+  width: min(100%, 500px);
+  max-width: 500px;
+  padding: 30px;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: 24px;
+  gap: 18px;
+}
+
+.auth-modal-heading {
+  display: grid;
+  gap: 7px;
+  padding: 2px 36px 0 0;
+}
+
+.auth-modal-heading > p {
+  color: #0f766e;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.auth-modal-heading h2 {
+  margin: 0;
+  font-size: clamp(1.55rem, 5vw, 1.85rem);
+  letter-spacing: -0.035em;
+}
+
+.auth-modal-heading > span {
+  max-width: 38ch;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.auth-modal-content form {
+  gap: 12px;
+}
+
+.auth-modal-content form > input,
+.auth-modal-content form > select,
+.auth-modal-content .google-signup-profile input,
+.auth-modal-content .google-signup-profile select {
+  min-height: 48px;
+  border-radius: 12px;
+}
+
+.auth-modal-content input:focus,
+.auth-modal-content select:focus {
+  border-color: #0f766e;
+  outline: 3px solid rgba(15, 118, 110, 0.13);
+  box-shadow: none;
+}
+
+.auth-modal-content .btn-submit {
+  min-height: 50px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  box-shadow: 0 7px 18px rgba(15, 118, 110, 0.2);
+}
+
+.auth-modal-content .btn-submit:hover {
+  box-shadow: 0 9px 22px rgba(15, 118, 110, 0.28);
+}
+
+.auth-modal-content .profile-pic-upload {
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 16px;
+  border: 1px dashed rgba(15, 118, 110, 0.32);
+  border-radius: 16px;
+  background: #f0fdfa;
+}
+
+.auth-modal-content .profile-large-avatar,
+.auth-modal-content .profile-large-avatar-img {
+  width: 68px;
+  height: 68px;
+  margin: 0;
+}
+
+.auth-modal-content .btn-upload-pic,
+.auth-modal-content .auth-mode-link {
+  color: #0f766e;
+}
+
+.auth-modal-content .hostel-privacy-note,
+.auth-modal-content .registration-email-note {
+  line-height: 1.5;
+}
+
+.auth-modal-content .google-signup-profile {
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.auth-modal-content .switch-mode {
+  padding-top: 2px;
+}
+
+.auth-modal-content .switch-mode p {
+  line-height: 1.6;
+}
+
 /* --- Profile Details & Buttons --- */
 .profile-modal {
   max-width: 520px;
@@ -3598,6 +3704,15 @@ body {
 }
 
 @media (max-width: 480px) {
+  .auth-modal-content {
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .auth-modal-content .profile-pic-upload {
+    padding: 13px;
+  }
+
   .product-form-modal {
     padding: 22px 18px;
   }
@@ -3618,4 +3733,20 @@ body {
   .detail-actions-row {
     gap: 8px;
   }
+}
+
+:root[data-theme="dark"] .auth-modal-content .profile-pic-upload {
+  border-color: rgba(94, 234, 212, 0.3);
+  background: #102b30;
+}
+
+:root[data-theme="dark"] .auth-modal-content .google-signup-profile {
+  border-color: var(--border-subtle);
+  background: #0b1423;
+}
+
+:root[data-theme="dark"] .auth-modal-heading > p,
+:root[data-theme="dark"] .auth-modal-content .btn-upload-pic,
+:root[data-theme="dark"] .auth-modal-content .auth-mode-link {
+  color: #5eead4;
 }

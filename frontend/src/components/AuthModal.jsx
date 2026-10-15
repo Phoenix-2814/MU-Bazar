@@ -33,6 +33,16 @@ export default function AuthModal({
         ? 'Reset password'
         : 'Login';
 
+  const subtitle = isRegister
+    ? 'Create your student account to buy and sell around campus.'
+    : isLogin
+      ? 'Sign in with your university email to continue.'
+      : isForgotPassword
+        ? 'Enter your university email and we’ll send you a reset link.'
+        : isResetPassword
+          ? 'Choose a new password for your account.'
+          : '';
+
   const handleSubmit = isForgotPassword
     ? handlePasswordResetRequest
     : isResetPassword
@@ -40,12 +50,16 @@ export default function AuthModal({
       : handleAuth;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <button className="close-btn" onClick={() => setShowAuthModal(false)}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div className="modal-content auth-modal-content">
+        <button type="button" className="close-btn" onClick={() => setShowAuthModal(false)} aria-label="Close sign in">
           &times;
         </button>
-        <h2>{title}</h2>
+        <header className="auth-modal-heading">
+          <p>MU BAZAR · CAMPUS MARKETPLACE</p>
+          <h2 id="auth-modal-title">{title}</h2>
+          <span>{subtitle}</span>
+        </header>
         {authMessage && <p className="auth-form-message" role="status">{authMessage}</p>}
         {!isRecoveryMode && GOOGLE_CLIENT_ID && (
           <div className="google-auth-section">
