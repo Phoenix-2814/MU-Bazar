@@ -1,10 +1,12 @@
 import './env';
+import { randomUUID } from 'crypto';
 import { after, before, beforeEach } from 'node:test';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import app from '../src/app';
+import AuthSession, { SESSION_MAX_LIFETIME_MS } from '../src/models/AuthSession';
 import Listing from '../src/models/Listing';
 import User from '../src/models/User';
 
@@ -57,11 +59,29 @@ export const createUser = async (overrides: Record<string, unknown> = {}) => {
     residencyType: 'outsider',
     ...overrides,
   });
-  return { user, token: tokenFor(user._id) };
+  return { user, token: await tokenFor(user) };
 };
 
-export const tokenFor = (userId: mongoose.Types.ObjectId | string) =>
-  jwt.sign({ id: String(userId), emailVerified: true }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+export const tokenFor = async (user: InstanceType<typeof User>) => {
+  const now = new Date();
+  const sessionId = randomUUID();
+  await AuthSession.create({
+    _id: sessionId,
+    userId: user._id,
+    userName: user.name,
+    userEmail: user.email,
+    loginAt: now,
+    lastActivityAt: now,
+    expiresAt: new Date(now.getTime() + SESSION_MAX_LIFETIME_MS),
+  });
+
+  return jwt.sign({
+    id: user._id.toString(),
+    sid: sessionId,
+    emailVerified: true,
+    tokenVersion: user.tokenVersion,
+  }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+};
 
 export const createListing = (seller: mongoose.Types.ObjectId, overrides: Record<string, unknown> = {}) =>
   Listing.create({
